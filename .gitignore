@@ -1,0 +1,10 @@
+# Secrets — the HubSpot key lives here; never commit it
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Audit dumps are local run artifacts, keep them out of the repo
+audit/*.json
