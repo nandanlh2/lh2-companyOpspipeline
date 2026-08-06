@@ -107,6 +107,29 @@ here first.
 Enum discipline: writing a value that is not an option fails with
 `INVALID_OPTION`. Read the property, PATCH the new option in, then write.
 
+## OutFlo import (opsdata/outflo_pull_push.py)
+
+Leads come from the OutFlo campaign **Company Ops_Pilot** (`live.outflo.in`
+API, `x-api-key` auth; key `OUTFLO_API_KEY` in `.env`). Only *outcomes* are
+imported: Connected → `Cold LinkedIn Sent`, Replied → `Replied`. "Request Sent"
+/ "Checking" leads stay in OutFlo — there is no stage for "we tried".
+
+- One **deal per company** (deal name = company), one contact per person,
+  associated; multi-founder companies share one deal.
+- All deals + contacts owned by **Kartik Pillai** (owner id `96316911`, the
+  only seat in this portal). The actual OutFlo sender is kept in
+  `outflo_assigned_account` (Anu Meena / Kartik Pillai) so deals can be
+  re-split if Anu gets a seat.
+- Provenance frozen at import: `lead_source` = `Outflo Outreach ( Startups )`,
+  `outflo_status` (Connected/Replied), `outflo_campaign`, `outflo_lead_id`,
+  `outflo_last_action_at`.
+- `replied_at` = timestamp of the last conversation message *when the lead sent
+  it*, else OutFlo's Last Action At (approximation, documented).
+- Idempotent: matched by `outflo_lead_id` then deal name; stage only ever
+  promotes `Cold LinkedIn Sent` → `Replied`; deals a human moved further are
+  never touched. Re-run any time to sync new connects/replies.
+- No phones are pushed: OutFlo carries none, and unverified numbers are banned.
+
 ## Known gaps / notes
 
 - `lead_source` in this portal is a plain **text** property, not the 5-option

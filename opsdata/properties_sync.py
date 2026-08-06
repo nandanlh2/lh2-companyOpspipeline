@@ -64,6 +64,21 @@ NEW = {
     "dataset_customization_required": dict(label="Dataset Customization Required", type="enumeration",
                                            fieldType="select", options=opts("Yes", "No")),
     "data_delivery_timeline": dict(label="Data Delivery Deadline", type="date", fieldType="date"),
+    # OutFlo import provenance — frozen at import time; the deal's stage moves on,
+    # these record how the lead arrived
+    "outflo_status":       dict(label="OutFlo Status (at import)", type="enumeration", fieldType="select",
+                                options=opts("Connected", "Replied")),
+    "outflo_campaign":     dict(label="OutFlo Campaign", type="string", fieldType="text"),
+    "outflo_lead_id":      dict(label="OutFlo Lead ID", type="string", fieldType="text"),
+    "outflo_assigned_account": dict(label="OutFlo Sender Account", type="string", fieldType="text"),
+    "outflo_last_action_at": dict(label="OutFlo Last Action At", type="datetime", fieldType="date"),
+}
+
+# contact-side: the join key must live on the contact too (this portal was born
+# without it, unlike the main portal)
+CONTACT_NEW = {
+    "linkedin_url": dict(label="LinkedIn URL (LH2)", type="string", fieldType="text",
+                         groupName="contactinformation"),
 }
 
 # already created by the earlier build attempt; pull them into the same UI group
@@ -96,6 +111,12 @@ def main():
         cur = have[name].get("groupName")
         plan.append(("regroup", name, "ok" if cur == GROUP else f"move {cur} -> {GROUP}"))
 
+    s, d = hs("/crm/v3/properties/contacts")
+    have_contact = {p["name"]: p for p in d["results"]}
+    for name, spec in CONTACT_NEW.items():
+        plan.append(("contact", name,
+                     "ok" if name in have_contact else f"CREATE ({spec['type']}/{spec['fieldType']})"))
+
     print(f"{'kind':<9} {'name':<34} action")
     print(f"{'-'*9} {'-'*34} {'-'*40}")
     for kind, name, action in plan:
@@ -123,6 +144,10 @@ def main():
         if have[name].get("groupName") != GROUP:
             s, p = hs(f"/crm/v3/properties/deals/{name}", {"groupName": GROUP}, method="PATCH")
             audit["regrouped"].append(p)
+    for name, spec in CONTACT_NEW.items():
+        if name not in have_contact:
+            s, p = hs("/crm/v3/properties/contacts", {"name": name, **spec}, method="POST")
+            audit["created"].append(p)
 
     os.makedirs(os.path.join(ROOT, "audit"), exist_ok=True)
     out = os.path.join(ROOT, "audit",
