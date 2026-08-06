@@ -130,6 +130,28 @@ imported: Connected → `Cold LinkedIn Sent`, Replied → `Replied`. "Request Se
   never touched. Re-run any time to sync new connects/replies.
 - No phones are pushed: OutFlo carries none, and unverified numbers are banned.
 
+## Gmail cold-email import (opsdata/gmail_pull_push.py)
+
+Kartik's mailbox (kartik.pillai@lh2.ai) runs a cold-email campaign; OAuth is
+read-only (`gmail.readonly`, token in `.gmail_token.json`, consent via
+`opsdata/gmail_auth.py`). **A campaign mail is any SENT message whose body
+contains a Calendly link** — subjects drifted, the link didn't.
+
+- One deal per recipient **domain**; company name derived from the domain
+  (renaming deals in HubSpot is safe — dedupe runs on `lh2_domain`, not name).
+- Everyone → `Message Back (Email + 2nd Msg)` with `li_msg2_date` = first-send
+  date (IST) and `email_sent_at` exact; a real human reply → `Replied` with
+  `replied_at` from the thread. Auto-replies (OOO) and postmaster mail never
+  count as replies; bounces get `email_status` = Bounced but stay live — the
+  SOP has no bounce outcome, a human decides.
+- Provenance: `lead_source` = `Cold Email ( Company Ops )`, `email_status`
+  (Awaiting Reply / Replied / Bounced), `email_campaign` (subject),
+  `email_sent_at`, `lh2_domain`.
+- A company already present from the OutFlo track gets the email contact
+  associated + email provenance stamped; its stage is untouched (Workline case).
+- Idempotent; stage only promotes `Message Back` → `Replied`. Safe to re-run
+  daily; each full run re-scans the mailbox (~5–10 min).
+
 ## Known gaps / notes
 
 - `lead_source` in this portal is a plain **text** property, not the 5-option

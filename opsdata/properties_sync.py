@@ -72,6 +72,11 @@ NEW = {
     "outflo_lead_id":      dict(label="OutFlo Lead ID", type="string", fieldType="text"),
     "outflo_assigned_account": dict(label="OutFlo Sender Account", type="string", fieldType="text"),
     "outflo_last_action_at": dict(label="OutFlo Last Action At", type="datetime", fieldType="date"),
+    # Gmail cold-email campaign provenance (Kartik's mailbox, Calendly-link mails)
+    "email_status":        dict(label="Email Campaign Status", type="enumeration", fieldType="select",
+                                options=opts("Awaiting Reply", "Replied", "Bounced")),
+    "email_campaign":      dict(label="Email Campaign (subject)", type="string", fieldType="text"),
+    "email_sent_at":       dict(label="Email First Sent At", type="datetime", fieldType="date"),
 }
 
 # contact-side: the join key must live on the contact too (this portal was born

@@ -8,7 +8,7 @@ A browser opens; sign in AS KARTIK, approve. The refresh token lands in
 Stdlib-only on purpose: the whole flow is one auth URL, one localhost redirect,
 one token POST — no google-* packages to install or keep patched.
 """
-import base64, hashlib, http.server, json, os, secrets, socket, sys, threading
+import base64, hashlib, http.server, json, os, secrets, socket, sys, threading, time
 import urllib.parse, urllib.request, webbrowser
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -70,9 +70,11 @@ def main():
     print(f"Opening browser — sign in as {EXPECTED_USER} and approve.\n"
           f"If no browser opens, paste this URL yourself:\n{url}\n")
     webbrowser.open(url)
-    srv.socket.settimeout(300)
+    deadline = time.time() + 480
     while "code" not in got and "error" not in got:
-        pass
+        if time.time() > deadline:
+            sys.exit("timed out waiting for consent (8 min) — re-run when ready")
+        time.sleep(0.25)
     if "error" in got:
         sys.exit(f"consent failed: {got['error']}")
 
