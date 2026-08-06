@@ -1,5 +1,7 @@
-# Secrets — the HubSpot key lives here; never commit it
+# Secrets — API keys and Google OAuth material; never commit any of these
 .env
+client_secret*.json
+.gmail_token.json
 
 # Python
 __pycache__/
