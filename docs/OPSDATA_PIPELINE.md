@@ -176,6 +176,13 @@ contains a Calendly link** — subjects drifted, the link didn't.
 
 ## Known gaps / notes
 
+- **Deal merge produces a NEW object id.** `POST /crm/v3/objects/deals/merge`
+  absorbs both records into a fresh id; the old primary id soft-redirects on
+  v3 `GET`/`PATCH` but NOT on every v4 endpoint (association listing on the
+  old id silently returns empty). After a merge, re-resolve the deal by search
+  before reading associations. (Learned merging the DoubleTick /
+  DoubleTick.io duplicate — same company, two founders, one deal.)
+
 - `lead_source` in this portal is a plain **text** property, not the 5-option
   enum the main portal uses. Convert before any cross-portal reporting.
 - Portal timezone is **US/Eastern**; LH2 reporting days are IST with an
