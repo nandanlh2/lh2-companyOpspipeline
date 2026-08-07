@@ -19,19 +19,19 @@ Dry-run by default; --apply to push. Same shape as outflo_pull_push.py:
 """
 import json, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OWNER_KARTIK = "96316911"
 PIPELINE_LABEL = "Company Ops Data"
 LEAD_SOURCE = "Cold Email ( Company Ops )"
-STAGE_SENT, STAGE_REPLIED = "Message Back (Email + 2nd Msg)", "Replied"
+STAGE_SENT, STAGE_REPLIED = "Email Campaign Sent", "Replied"
+# a reply may arrive while the deal sits in either email-branch stage
+PROMOTABLE = {"Email Campaign Sent", "Email Follow-Up"}
 CALENDLY = re.compile(r"calendly\.com/", re.I)
 ADDR = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 OWN_DOMAINS = ("lh2.ai", "lh2holdings.com")
 AUTOMATON = re.compile(r"postmaster|mailer-daemon|no-?reply|donotreply", re.I)
 AUTO_SUBJ = re.compile(r"automatic reply|auto-?reply|out of office|ooto|undeliverable", re.I)
-IST = timezone(timedelta(hours=5, minutes=30))
 
 def _env():
     d = {}
@@ -124,12 +124,6 @@ def company_from_domain(domain):
     # the plan table; a send-list sheet with real names beats this when provided.
     base = domain.split(".")[0]
     return base.capitalize() if base.islower() else base
-
-def ist_midnight_ms(ts_ms):
-    # HubSpot date-props want midnight UTC of the calendar date; the calendar
-    # that matters here is IST (LH2's reporting day)
-    d = datetime.fromtimestamp(ts_ms / 1000, IST).date()
-    return int(datetime(d.year, d.month, d.day, tzinfo=timezone.utc).timestamp() * 1000)
 
 def pull_campaign():
     sent_ids = list_ids("in:sent")
@@ -262,7 +256,7 @@ def main():
         else:
             u["deal_id"] = hit
             cur = stage_label.get(deals[hit].get("dealstage"), "?")
-            if u["stage"] == STAGE_REPLIED and cur == STAGE_SENT:
+            if u["stage"] == STAGE_REPLIED and cur in PROMOTABLE:
                 u["action"] = "PROMOTE -> Replied"
             else:
                 u["action"] = f"ATTACH to existing ({deals[hit].get('dealname')!r} at {cur!r})"
@@ -319,7 +313,7 @@ def main():
             "dealstage": stage_id[u["stage"]], "hubspot_owner_id": OWNER_KARTIK,
             "lead_source": LEAD_SOURCE, "lh2_domain": u["domain"],
             "email_status": u["status"], "email_campaign": u["subject"],
-            "email_sent_at": u["first_ts"], "li_msg2_date": ist_midnight_ms(u["first_ts"]),
+            "email_sent_at": u["first_ts"],
         }
         if u["replied_ts"]:
             props["replied_at"] = u["replied_ts"]

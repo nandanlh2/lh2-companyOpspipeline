@@ -2,7 +2,9 @@
 
 **Portal:** `246897735` (build portal — **not** the main LH2 portal `246754894` that
 `context.md` describes). Pipeline **Company Ops Data**, id `2464812771`.
-Source of truth for the flow: `OPSDATA_SOP_GoogleDocs_flowchart1.png`.
+Source of truth for the flow: **`Company Ops_SOP_flowchart_v2.png`** (v1
+`OPSDATA_SOP_GoogleDocs_flowchart1.png` is history; the v1→v2 restructure was
+applied by `opsdata/pipeline_v2_update.py` + `opsdata/deals_v2_migrate.py`).
 Synced by `opsdata/pipeline_sync.py` and `opsdata/properties_sync.py` (dry-run by
 default, `--apply` to write, audit JSON lands in `audit/`).
 
@@ -18,9 +20,21 @@ STAGE = {p["id"]: {st["label"]: st["id"] for st in p["stages"]} for p in d["resu
 - **The outcome IS the stage.** `Begin Here` and `Profile PreScreen` existed as
   stages from an earlier build and were removed (0 deals held them). The start
   marker and the decision diamond are not states; a stage that means "we are
-  judging" is the same mistake as the retired `Call Attempted`. The entry state
-  is `Cold Lead`; the prescreen's *outcomes* are `Cold LinkedIn Sent` (good fit)
-  or `Dead/Cold/WrongFit` (screened out, never contacted).
+  judging" is the same mistake as the retired `Call Attempted`.
+- **Two entry branches, no pre-contact stage (v2).** Leads enter at
+  `Cold LinkedIn Sent` **or** `Email Campaign Sent` — a lead exists in the CRM
+  only once outreach is out. v1's `Cold Lead` entry stage and the prescreen
+  outcome `Dead/Cold/WrongFit` were deleted in the v2 restructure (verified
+  unused across every deal's stage history first).
+- **Renaming a stage: use per-stage PATCH, never the pipeline PUT.** The v3
+  pipeline PUT matches stages **by label** — a rename via PUT silently becomes
+  delete + create with a NEW stage id (observed in the v2 restructure:
+  `GMeet Fixed` → `Discovery Call` got a fresh id). Harmless only because the
+  renamed stages held zero deals and zero history references. A stage that
+  holds deals must be renamed with
+  `PATCH /crm/v3/pipelines/deals/{pipelineId}/stages/{stageId}`.
+  Reordering, however, must still be one atomic PUT (sequential PATCHes
+  re-sequence wrongly — main-portal lesson).
 - **Price lives in `cost`** ("Deal Cost (USD)") because the flowchart's Payment
   Initiation gate is literally "Deal Cost ($)". This flow never writes `amount`.
   (The main portal has an unreconciled `amount`-vs-`cost` conflict; here we pick
@@ -31,27 +45,28 @@ STAGE = {p["id"]: {st["label"]: st["id"] for st in p["stages"]} for p in d["resu
   (`propertiesWithHistory=dealstage`), never counters. Activity metrics filter
   `sourceType == "CRM_UI"`; procurement metrics ignore `sourceType`.
 
-## Live stages
+## Live stages (v2)
 
 | # | Stage | Prob | Meaning (state, not activity) | Gate — set when entering |
 |---|---|---|---|---|
-| 0 | Cold Lead | 0.02 | Lead loaded, PoC = analyst; not yet screened | — |
-| 1 | Cold LinkedIn Sent | 0.04 | Prescreen passed, LinkedIn msg 1 out | `li_msg1_date` |
-| 2 | Message Back (Email + 2nd Msg) | 0.06 | No reply in 1–2 d; msg 2 + cold email out | `li_msg2_date` |
-| 3 | Replied | 0.10 | They answered | `replied_at` |
-| 4 | Ghost Follow-Up | 0.08 | Agreed, then went quiet; follow-up out | — |
-| 5 | GMeet Fixed | 0.20 | Meeting booked. **Handover: analyst → Pod Lead** | `gmeet1_link`, `gmeet1_date` |
-| 6 | One Pager + Deck Shared | 0.30 | GMeet happened, proceeds; collateral sent | `one_pager_sent_date`, `gmeet1_outcome` |
-| 7 | Internal Evaluation (Sample) | 0.35 | We are judging their ops data on paper | `ops_data_types`, `systems_of_record`, `internal_eval_result` |
-| 8 | Samples Requested | 0.40 | Good fit; asked for a sample | `sample_requested_date` |
-| 9 | Sample Follow-Up | 0.38 | Nothing yet; email + call-back, 1–2 d | — |
-| 10 | Sample Received + Interest Gauge | 0.50 | Sample in hand; gauge vs DEMAND. **Handover: Pod Lead → Pod Head** | `sample_quality_score`, `sample_format`, `sample_pii_flags` |
-| 11 | Token Amount Paid | 0.65 | We paid a token — skin in the game | `token_amount`, `token_paid_date` |
-| 12 | Commercial Negotiations | 0.70 | Talking price | `deal_value_range` |
-| 13 | Deal Contract Signed | 0.85 | Signed, incl. DPA / scrub plan | `data_delivery_timeline` |
-| 14 | Data Migration Done | 0.90 | Assets transferred | `migration_volume`, `migration_record_count`, `number_of_datasets` |
-| 15 | Payment Initiation | 0.95 | Paying the balance | `cost` |
-| 16 | Closed/Won | 1.0 | Done. Client + internal email — **sent manually** | — |
+| 0 | Cold LinkedIn Sent | 0.05 | LinkedIn-branch entry: msg 1 out | `li_msg1_date` |
+| 1 | Email Campaign Sent | 0.05 | Email-branch entry: campaign mail out | `email_sent_at`, `email_campaign` |
+| 2 | Message Back (Email + 2nd Msg) | 0.08 | LinkedIn branch, no reply +1 d; msg 2 + email out | `li_msg2_date` |
+| 3 | Email Follow-Up | 0.08 | Email branch, no reply +1 d; follow-up mail out | — |
+| 4 | Replied | 0.12 | They answered (either branch) | `replied_at` |
+| 5 | Ghost Follow-Up | 0.12 | Agreed, then went quiet; follow-up out | — |
+| 6 | Discovery Call | 0.25 | Meeting booked. **Handover: analyst → Pod Lead** | `gmeet1_link`, `gmeet1_date` |
+| 7 | One Pager + Deck Shared | 0.35 | Call happened, proceeds; collateral sent | `one_pager_sent_date`, `gmeet1_outcome` |
+| 8 | Internal Evaluation (Sample) | 0.40 | We are judging their ops data on paper | `ops_data_types`, `systems_of_record`, `internal_eval_result` |
+| 9 | Samples Requested | 0.45 | Good fit; asked for a sample | `sample_requested_date` |
+| 10 | Sample Follow-Up | 0.45 | Nothing yet; email + call-back, 1–2 d | — |
+| 11 | Sample Received + Quality Check | 0.55 | Sample in hand; judged on quality. **Handover: Pod Lead → Pod Head** | `sample_quality_score`, `sample_format`, `sample_pii_flags` |
+| 12 | Commercial Negotiations | 0.65 | Quality good; talking price | `deal_value_range` |
+| 13 | Deal Contract Signed | 0.80 | Signed, incl. DPA / scrub plan | `data_delivery_timeline` |
+| 14 | Token Amount Paid | 0.85 | Token paid **after signing** (v2 moved this from pre-negotiation) | `token_amount`, `token_paid_date` |
+| 15 | Data Migration Done | 0.90 | Assets transferred | `migration_volume`, `migration_record_count`, `number_of_datasets` |
+| 16 | Payment Initiation | 0.95 | Paying the balance | `cost` |
+| 17 | Closed/Won | 1.0 | Done. Client + internal email — **sent manually** | — |
 
 Roles by LH2 names: **Lead Manager** = Pod Lead, **Lead Closer** = Pod Head.
 Never put an individual's name in this document — people rotate.
@@ -60,17 +75,21 @@ Never put an individual's name in this document — people rotate.
 
 | # | Stage | Use when |
 |---|---|---|
-| 17 | Dead/Cold/WrongFit | Failed profile prescreen — never contacted |
 | 18 | Dead/Cold/Not Interested | Replied, said no |
-| 19 | Dead/Cold/No Reply | Msg 1 + msg 2 + ghost follow-up all silent |
-| 20 | Dead/Interested/No Show | GMeet outcome: wrong fit or they never showed |
-| 21 | Dead/GMeet/Privacy Concerns | GMeet happened; they balked at sharing ops data |
+| 19 | Dead/Cold/No Reply | All outreach in the branch went silent (either branch) |
+| 20 | Dead/Interested/No Show | Discovery Call outcome: wrong fit or they never showed |
+| 21 | Dead/Discovery Call/Privacy Concerns | Call happened; they balked at sharing ops data |
 | 22 | Dead/Sample Not Collected/Wrong Fit-Rejected | Internal evaluation said wrong fit — sample never requested |
 | 23 | Dead/Sample Not Received/Company No Show | Sample requested + follow-up; nothing arrived |
-| 24 | Dead/No Interest from Demand/Wrong Fit-Rejected | Sample gauged; demand side said no |
+| 24 | Dead/Sample/Bad Quality | Sample received but quality check failed |
 | 25 | Dead/Negotiations/Pricing | Price gap |
 | 26 | Dead/Negotiations/Contractual | Contract terms failed |
 | 27 | Dead/Migration/Failed | Contract signed but delivery failed |
+
+Removed in v2 (deleted after verifying zero deals and zero history references):
+`Dead/Cold/WrongFit` (no prescreen stage anymore) and
+`Dead/No Interest from Demand/Wrong Fit-Rejected` (the demand gauge became a
+quality check; its failure outcome is `Dead/Sample/Bad Quality`).
 
 The middle segment is the stage it died *at* — per-stage survival is computed
 from these, no separate lost-reason field exists or should exist.
@@ -82,8 +101,8 @@ here first.
 
 | Property | Type | Definition |
 |---|---|---|
-| `li_msg1_date` | date | Date LinkedIn msg 1 sent |
-| `li_msg2_date` | date | Date msg 2 / cold email sent |
+| `li_msg1_date` | date | Date LinkedIn msg 1 sent (LinkedIn branch) |
+| `li_msg2_date` | date | Date msg 2 + email sent (LinkedIn branch only — email-branch deals use `email_sent_at`) |
 | `replied_at` | datetime | First substantive reply from the lead |
 | `gmeet1_date` / `gmeet1_link` | datetime / text | First meeting slot + link |
 | `gmeet1_outcome` | enum: Proceeds, Wrong Fit, No Show, Privacy Concerns | Maps 1:1 to the post-GMeet branches |
@@ -139,18 +158,21 @@ contains a Calendly link** — subjects drifted, the link didn't.
 
 - One deal per recipient **domain**; company name derived from the domain
   (renaming deals in HubSpot is safe — dedupe runs on `lh2_domain`, not name).
-- Everyone → `Message Back (Email + 2nd Msg)` with `li_msg2_date` = first-send
-  date (IST) and `email_sent_at` exact; a real human reply → `Replied` with
-  `replied_at` from the thread. Auto-replies (OOO) and postmaster mail never
-  count as replies; bounces get `email_status` = Bounced but stay live — the
-  SOP has no bounce outcome, a human decides.
+- Everyone → `Email Campaign Sent` (v2 email-branch entry) with `email_sent_at`;
+  a real human reply → `Replied` with `replied_at` from the thread. Auto-replies
+  (OOO) and postmaster mail never count as replies; bounces get `email_status`
+  = Bounced but stay live — the SOP has no bounce outcome, a human decides.
+  (v1 pushed these to `Message Back (Email + 2nd Msg)` with `li_msg2_date`;
+  `deals_v2_migrate.py` moved all 125 and cleared that date — under v2 both
+  belong to the LinkedIn branch only.)
 - Provenance: `lead_source` = `Cold Email ( Company Ops )`, `email_status`
   (Awaiting Reply / Replied / Bounced), `email_campaign` (subject),
   `email_sent_at`, `lh2_domain`.
 - A company already present from the OutFlo track gets the email contact
   associated + email provenance stamped; its stage is untouched (Workline case).
-- Idempotent; stage only promotes `Message Back` → `Replied`. Safe to re-run
-  daily; each full run re-scans the mailbox (~5–10 min).
+- Idempotent; stage only promotes `Email Campaign Sent` / `Email Follow-Up`
+  → `Replied`. Safe to re-run daily; each full run re-scans the mailbox
+  (~5–10 min).
 
 ## Known gaps / notes
 
