@@ -1,4 +1,5 @@
-"""Pull Connected/Replied leads from the OutFlo 'Company Ops' campaign, push to HubSpot.
+"""Pull Connected/Replied leads from all ACTIVE OutFlo 'Company Ops' campaigns
+(India, UAE, ... — the geo expansion runs several at once), push to HubSpot.
 
 Dry-run by default: prints the full plan table and writes nothing. --apply to push.
 
@@ -19,7 +20,7 @@ Shape of the push:
 - no phone numbers are pushed at all: OutFlo has none, and pushing an unverified
   number would break the no-non-Indian-number rule
 """
-import json, os, subprocess, sys, time, urllib.error, urllib.request
+import json, os, re, subprocess, sys, time, urllib.error, urllib.request
 from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,6 +28,13 @@ OWNER_KARTIK = "96316911"
 PIPELINE_LABEL = "Company Ops Data"
 LEAD_SOURCE = "Outflo Outreach ( Startups )"
 STAGE_CONNECTED, STAGE_REPLIED = "Cold LinkedIn Sent", "Replied"
+
+def norm_company(name):
+    # matching key only, never the stored deal name: OutFlo profiles write the
+    # same company as 'DoubleTick' and 'DoubleTick.io' — strip domain-suffix
+    # noise so a merged/renamed deal doesn't get re-created on the next sync
+    s = re.sub(r"\s+", " ", (name or "")).strip().casefold()
+    return re.sub(r"\.(io|com|ai|in|co|tech|net|app)$", "", s)
 
 def _env():
     d = {}
@@ -83,36 +91,41 @@ def mailer_guard():
                  "everyone on a bulk owner write. Disable it first.")
 
 def pull_outflo():
+    # geography expansion means several ACTIVE 'Company Ops' campaigns can run
+    # at once (India, UAE, ...) — sync them all; each lead remembers its own
     camps = outflo("/api/public/campaigns")["campaigns"]
     hits = [c for c in camps if "company ops" in c["name"].lower() and c["status"] == "ACTIVE"]
-    if len(hits) != 1:
-        sys.exit(f"ABORT: expected exactly one ACTIVE 'company ops' campaign, found "
-                 f"{[(c['name'], c['status']) for c in hits]}")
-    camp = hits[0]
+    if not hits:
+        sys.exit("ABORT: no ACTIVE 'company ops' campaign found")
 
-    d = outflo(f"/api/public/campaigns/{camp['id']}/leads")
-    rows = d.get("rows") or d.get("leads") or []
-    push = [r for r in rows
-            if r.get("Connection Status") in ("Connected", "Previously Connected")
-            or r.get("Reply Status") == "Replied"]
+    push, replied_at = [], {}
+    for camp in hits:
+        d = outflo(f"/api/public/campaigns/{camp['id']}/leads")
+        rows = d.get("rows") or d.get("leads") or []
+        mine = [r for r in rows
+                if r.get("Connection Status") in ("Connected", "Previously Connected")
+                or r.get("Reply Status") == "Replied"]
+        for r in mine:
+            r["_campaign"] = camp["name"]
+        push += mine
+        print(f"  {camp['name']!r}: {len(rows)} leads, {len(mine)} pushable")
 
-    # conversation lastMessage.sentAt is a real reply time only when the lead sent
-    # it; the campaignId filter on this endpoint is unreliable, so match by URL
-    replied_at = {}
-    try:
-        convs = outflo(f"/api/public/conversations?campaignId={camp['id']}")["conversations"]
-        for c in convs:
-            att, lm = c.get("attendee") or {}, c.get("lastMessage") or {}
-            if lm.get("senderUrn") and lm.get("senderUrn") == att.get("urn"):
-                replied_at[norm_url(att.get("profileUrl"))] = lm.get("sentAt")
-    except SystemExit:
-        raise
-    except Exception as e:
-        print(f"note: conversation enrichment unavailable ({e!r}); "
-              "falling back to Last Action At for replied_at")
-    return camp, push, replied_at
+        # conversation lastMessage.sentAt is a real reply time only when the lead
+        # sent it; the campaignId filter is unreliable, so match by URL
+        try:
+            convs = outflo(f"/api/public/conversations?campaignId={camp['id']}")["conversations"]
+            for c in convs:
+                att, lm = c.get("attendee") or {}, c.get("lastMessage") or {}
+                if lm.get("senderUrn") and lm.get("senderUrn") == att.get("urn"):
+                    replied_at[norm_url(att.get("profileUrl"))] = lm.get("sentAt")
+        except SystemExit:
+            raise
+        except Exception as e:
+            print(f"note: conversation enrichment unavailable for {camp['name']!r} "
+                  f"({e!r}); falling back to Last Action At for replied_at")
+    return hits, push, replied_at
 
-def build_units(camp, push, replied_at_by_url):
+def build_units(push, replied_at_by_url):
     # one deal per company; a replied member sets the whole company to Replied
     units = {}
     for r in push:
@@ -120,7 +133,7 @@ def build_units(camp, push, replied_at_by_url):
         if not company:
             print(f"  SKIP (no company, deal would be unnameable): {r.get('Lead')!r}")
             continue
-        u = units.setdefault(company.casefold(), {"company": company, "leads": []})
+        u = units.setdefault(norm_company(company), {"company": company, "leads": []})
         u["leads"].append(r)
     for u in units.values():
         replied = [r for r in u["leads"] if r.get("Reply Status") == "Replied"]
@@ -128,6 +141,7 @@ def build_units(camp, push, replied_at_by_url):
         u["stage"] = STAGE_REPLIED if replied else STAGE_CONNECTED
         rep = replied[0] if replied else u["leads"][0]
         u["rep"] = rep
+        u["campaign"] = rep.get("_campaign", "")
         u["replied_at"] = (replied_at_by_url.get(norm_url(rep.get("linkedinUrl")))
                            or rep.get("Last Action At")) if replied else None
     return list(units.values())
@@ -171,9 +185,10 @@ def hubspot_state():
 
 def main():
     apply = "--apply" in sys.argv
-    camp, push, replied_at_by_url = pull_outflo()
-    print(f"OutFlo campaign: {camp['name']!r} ({camp['id']}) — {len(push)} pushable leads")
-    units = build_units(camp, push, replied_at_by_url)
+    print("OutFlo ACTIVE 'Company Ops' campaigns:")
+    camps, push, replied_at_by_url = pull_outflo()
+    print(f"  total pushable: {len(push)}")
+    units = build_units(push, replied_at_by_url)
 
     pipe, stage_id, stage_label, existing_deals, existing_contacts = hubspot_state()
     for lbl in (STAGE_CONNECTED, STAGE_REPLIED):
@@ -182,12 +197,12 @@ def main():
 
     by_lead_id = {p.get("outflo_lead_id"): (i, p) for i, p in existing_deals.items()
                   if p.get("outflo_lead_id")}
-    by_name = {p.get("dealname", "").casefold(): (i, p) for i, p in existing_deals.items()}
+    by_name = {norm_company(p.get("dealname", "")): (i, p) for i, p in existing_deals.items()}
 
     plan = []
     for u in units:
         rep_lead_id = u["rep"].get("leadId")
-        hit = by_lead_id.get(rep_lead_id) or by_name.get(u["company"].casefold())
+        hit = by_lead_id.get(rep_lead_id) or by_name.get(norm_company(u["company"]))
         if not hit:
             action = "CREATE"
         else:
@@ -201,15 +216,17 @@ def main():
         u["action"] = action
         n_new = sum(1 for r in u["leads"]
                     if norm_url(r.get("linkedinUrl")) not in existing_contacts)
-        plan.append((u["company"], u["status"], u["stage"],
+        geo = u["campaign"].replace("Company Ops_", "").replace("Company Ops", "").strip() or "?"
+        plan.append((u["company"], geo, u["status"], u["stage"],
                      f"{len(u['leads'])} ({n_new} new)", u["rep"]["Assigned Account"], action))
 
     print(f"\nPlan — pipeline {PIPELINE_LABEL!r}, owner Kartik Pillai ({OWNER_KARTIK}), "
           f"lead_source {LEAD_SOURCE!r}:\n")
-    print(f"  {'company':<34} {'status':<10} {'stage':<20} {'contacts':<12} {'sender':<14} action")
-    print(f"  {'-'*34} {'-'*10} {'-'*20} {'-'*12} {'-'*14} {'-'*20}")
-    for row in sorted(plan, key=lambda x: (x[5] != 'CREATE', x[1] != 'Replied', x[0].lower())):
-        print(f"  {row[0][:34]:<34} {row[1]:<10} {row[2]:<20} {row[3]:<12} {row[4]:<14} {row[5]}")
+    print(f"  {'company':<34} {'camp':<7} {'status':<10} {'stage':<20} {'contacts':<12} {'sender':<14} action")
+    print(f"  {'-'*34} {'-'*7} {'-'*10} {'-'*20} {'-'*12} {'-'*14} {'-'*20}")
+    for row in sorted(plan, key=lambda x: (x[6] != 'CREATE', x[2] != 'Replied', x[0].lower())):
+        print(f"  {row[0][:34]:<34} {row[1][:7]:<7} {row[2]:<10} {row[3]:<20} "
+              f"{row[4]:<12} {row[5]:<14} {row[6]}")
     creates = [u for u in units if u["action"] == "CREATE"]
     promotes = [u for u in units if u["action"].startswith("PROMOTE")]
     print(f"\n  totals: {len(creates)} deals to create, {len(promotes)} to promote, "
@@ -221,7 +238,7 @@ def main():
         return
 
     mailer_guard()
-    audit = {"campaign": {"id": camp["id"], "name": camp["name"]},
+    audit = {"campaigns": [{"id": c["id"], "name": c["name"]} for c in camps],
              "contacts_created": [], "deals_created": [], "deals_promoted": []}
 
     # contacts first: deal creation needs their ids for inline association
@@ -261,7 +278,7 @@ def main():
             "hubspot_owner_id": OWNER_KARTIK,
             "lead_source": LEAD_SOURCE,
             "outflo_status": u["status"],
-            "outflo_campaign": camp["name"],
+            "outflo_campaign": u["campaign"],
             "outflo_lead_id": rep.get("leadId"),
             "outflo_assigned_account": rep.get("Assigned Account") or "",
             "linkedin_url": rep.get("linkedinUrl"),
