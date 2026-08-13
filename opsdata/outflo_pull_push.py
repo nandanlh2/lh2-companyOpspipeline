@@ -27,7 +27,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OWNER_KARTIK = "96316911"
 PIPELINE_LABEL = "Company Ops Data"
 LEAD_SOURCE = "Outflo Outreach ( Startups )"
-STAGE_CONNECTED, STAGE_REPLIED = "Cold LinkedIn Sent", "Replied"
+# 2026-08-13 bucket fix: OutFlo Leads Processed (request sent) -> Cold LinkedIn
+# Sent; Connected -> LinkedIn Connected. Stage only ever climbs this ladder.
+STAGE_PROCESSED = "Cold LinkedIn Sent"
+STAGE_CONNECTED = "LinkedIn Connected"
+STAGE_REPLIED = "Replied"
+RANK = {STAGE_PROCESSED: 0, STAGE_CONNECTED: 1, STAGE_REPLIED: 2}
 
 def norm_company(name):
     # matching key only, never the stored deal name: OutFlo profiles write the
@@ -84,8 +89,11 @@ def to_ms(iso):
 def mailer_guard():
     # documented incident: an armed mailer once fanned out 9 mails over a bulk
     # owner write; the guard lives in the script, not in anyone's head
-    q = subprocess.run(["schtasks", "/query", "/tn", "LH2 VCF lead notifier",
-                        "/fo", "LIST", "/v"], capture_output=True, text=True)
+    try:
+        q = subprocess.run(["schtasks", "/query", "/tn", "LH2 VCF lead notifier",
+                            "/fo", "LIST", "/v"], capture_output=True, text=True)
+    except FileNotFoundError:
+        return  # not Windows — the scheduler (and thus the mailer) can't exist here
     if q.returncode == 0 and "Disabled" not in q.stdout:
         sys.exit("ABORT: 'LH2 VCF lead notifier' task is armed — it would mail "
                  "everyone on a bulk owner write. Disable it first.")
@@ -103,7 +111,8 @@ def pull_outflo():
         d = outflo(f"/api/public/campaigns/{camp['id']}/leads")
         rows = d.get("rows") or d.get("leads") or []
         mine = [r for r in rows
-                if r.get("Connection Status") in ("Connected", "Previously Connected")
+                if r.get("Connection Status") in ("Connected", "Previously Connected",
+                                                  "Request Sent", "Previously Request Sent")
                 or r.get("Reply Status") == "Replied"]
         for r in mine:
             r["_campaign"] = camp["name"]
@@ -137,9 +146,15 @@ def build_units(push, replied_at_by_url):
         u["leads"].append(r)
     for u in units.values():
         replied = [r for r in u["leads"] if r.get("Reply Status") == "Replied"]
-        u["status"] = "Replied" if replied else "Connected"
-        u["stage"] = STAGE_REPLIED if replied else STAGE_CONNECTED
-        rep = replied[0] if replied else u["leads"][0]
+        connected = [r for r in u["leads"]
+                     if r.get("Connection Status") in ("Connected", "Previously Connected")]
+        if replied:
+            u["status"], u["stage"] = "Replied", STAGE_REPLIED
+        elif connected:
+            u["status"], u["stage"] = "Connected", STAGE_CONNECTED
+        else:
+            u["status"], u["stage"] = "Request Sent", STAGE_PROCESSED
+        rep = (replied or connected or u["leads"])[0]
         u["rep"] = rep
         u["campaign"] = rep.get("_campaign", "")
         u["replied_at"] = (replied_at_by_url.get(norm_url(rep.get("linkedinUrl")))
@@ -191,7 +206,7 @@ def main():
     units = build_units(push, replied_at_by_url)
 
     pipe, stage_id, stage_label, existing_deals, existing_contacts = hubspot_state()
-    for lbl in (STAGE_CONNECTED, STAGE_REPLIED):
+    for lbl in (STAGE_PROCESSED, STAGE_CONNECTED, STAGE_REPLIED):
         if lbl not in stage_id:
             sys.exit(f"ABORT: stage {lbl!r} missing from pipeline {PIPELINE_LABEL!r}")
 
@@ -208,10 +223,10 @@ def main():
         else:
             deal_id, props = hit
             cur = stage_label.get(props.get("dealstage"), props.get("dealstage"))
-            if cur == STAGE_CONNECTED and u["stage"] == STAGE_REPLIED:
-                action, u["deal_id"] = "PROMOTE -> Replied", deal_id
+            if cur in RANK and RANK[u["stage"]] > RANK[cur]:
+                action, u["deal_id"] = f"PROMOTE -> {u['stage']}", deal_id
             else:
-                # a human may have moved it further along — never touch that
+                # dead, human-progressed, or already-at/above stages stay put
                 action, u["deal_id"] = f"SKIP (exists at {cur!r})", deal_id
         u["action"] = action
         n_new = sum(1 for r in u["leads"]
@@ -305,13 +320,15 @@ def main():
                                            "dealstage": r["properties"].get("dealstage")})
 
     for u in promotes:
-        body = {"properties": {"dealstage": stage_id[STAGE_REPLIED],
-                               "outflo_status": "Replied"}}
-        ms = to_ms(u["replied_at"])
-        if ms:
-            body["properties"]["replied_at"] = ms
+        body = {"properties": {"dealstage": stage_id[u["stage"]],
+                               "outflo_status": u["status"]}}
+        if u["status"] == "Replied":
+            ms = to_ms(u["replied_at"])
+            if ms:
+                body["properties"]["replied_at"] = ms
         s, d = hs(f"/crm/v3/objects/deals/{u['deal_id']}", body, method="PATCH")
-        audit["deals_promoted"].append({"id": u["deal_id"], "dealname": u["company"]})
+        audit["deals_promoted"].append({"id": u["deal_id"], "dealname": u["company"],
+                                        "to": u["stage"]})
 
     os.makedirs(os.path.join(ROOT, "audit"), exist_ok=True)
     out = os.path.join(ROOT, "audit",

@@ -2,9 +2,12 @@
 
 **Portal:** `246897735` (build portal — **not** the main LH2 portal `246754894` that
 `context.md` describes). Pipeline **Company Ops Data**, id `2464812771`.
-Source of truth for the flow: **`Company Ops_SOP_flowchart_v2.png`** (v1
-`OPSDATA_SOP_GoogleDocs_flowchart1.png` is history; the v1→v2 restructure was
-applied by `opsdata/pipeline_v2_update.py` + `opsdata/deals_v2_migrate.py`).
+Source of truth for the flow: **`Company_Ops_SOP_flowchart_v3.png`**
+(v1 `OPSDATA_SOP_GoogleDocs_flowchart1.png` and v2
+`Company Ops_SOP_flowchart_v2.png` are history; v1→v2 was applied by
+`pipeline_v2_update.py` + `deals_v2_migrate.py`, v2→v3 by
+`pipeline_v3_update.py`, with the deal move in `deals_v3_migrate.py`,
+applied 2026-08-13 as part of the OutFlo bucket fix).
 Synced by `opsdata/pipeline_sync.py` and `opsdata/properties_sync.py` (dry-run by
 default, `--apply` to write, audit JSON lands in `audit/`).
 
@@ -45,28 +48,40 @@ STAGE = {p["id"]: {st["label"]: st["id"] for st in p["stages"]} for p in d["resu
   (`propertiesWithHistory=dealstage`), never counters. Activity metrics filter
   `sourceType == "CRM_UI"`; procurement metrics ignore `sourceType`.
 
-## Live stages (v2)
+## Live stages (v3, live as of 2026-08-13)
+
+v3 (applied by `pipeline_v3_update.py`) added LinkedIn Connected and the One
+Pager sub-flow and renamed Message Back → LinkedIn Follow-Up, One Pager + Deck
+Shared → One Pager Shared. The pipeline can also drift via the HubSpot UI, so
+**before any pipeline write, re-pull the live pipeline and diff** — a shape
+script is only truth after its dry-run shows zero changes against live.
 
 | # | Stage | Prob | Meaning (state, not activity) | Gate — set when entering |
 |---|---|---|---|---|
-| 0 | Cold LinkedIn Sent | 0.05 | LinkedIn-branch entry: msg 1 out | `li_msg1_date` |
-| 1 | Email Campaign Sent | 0.05 | Email-branch entry: campaign mail out | `email_sent_at`, `email_campaign` |
-| 2 | Message Back (Email + 2nd Msg) | 0.08 | LinkedIn branch, no reply +1 d; msg 2 + email out | `li_msg2_date` |
-| 3 | Email Follow-Up | 0.08 | Email branch, no reply +1 d; follow-up mail out | — |
-| 4 | Replied | 0.12 | They answered (either branch) | `replied_at` |
-| 5 | Ghost Follow-Up | 0.12 | Agreed, then went quiet; follow-up out | — |
-| 6 | Discovery Call | 0.25 | Meeting booked. **Handover: analyst → Pod Lead** | `gmeet1_link`, `gmeet1_date` |
-| 7 | One Pager + Deck Shared | 0.35 | Call happened, proceeds; collateral sent | `one_pager_sent_date`, `gmeet1_outcome` |
-| 8 | Internal Evaluation (Sample) | 0.40 | We are judging their ops data on paper | `ops_data_types`, `systems_of_record`, `internal_eval_result` |
-| 9 | Samples Requested | 0.45 | Good fit; asked for a sample | `sample_requested_date` |
-| 10 | Sample Follow-Up | 0.45 | Nothing yet; email + call-back, 1–2 d | — |
-| 11 | Sample Received + Quality Check | 0.55 | Sample in hand; judged on quality. **Handover: Pod Lead → Pod Head** | `sample_quality_score`, `sample_format`, `sample_pii_flags` |
-| 12 | Commercial Negotiations | 0.65 | Quality good; talking price | `deal_value_range` |
-| 13 | Deal Contract Signed | 0.80 | Signed, incl. DPA / scrub plan | `data_delivery_timeline` |
-| 14 | Token Amount Paid | 0.85 | Token paid **after signing** (v2 moved this from pre-negotiation) | `token_amount`, `token_paid_date` |
-| 15 | Data Migration Done | 0.90 | Assets transferred | `migration_volume`, `migration_record_count`, `number_of_datasets` |
-| 16 | Payment Initiation | 0.95 | Paying the balance | `cost` |
-| 17 | Closed/Won | 1.0 | Done. Client + internal email — **sent manually** | — |
+| 0 | Cold LinkedIn Sent | 0.03 | LinkedIn-branch entry: connect request / msg 1 out (OutFlo "leads processed") | `li_msg1_date` |
+| 1 | LinkedIn Connected | 0.05 | They accepted the connect (OutFlo "Connected") | — |
+| 2 | LinkedIn Follow-Up | 0.08 | Connected, no reply +1 d; follow-up out (ex "Message Back (Email + 2nd Msg)") | `li_msg2_date` |
+| 3 | Email Campaign Sent | 0.05 | Email-branch entry: campaign mail out | `email_sent_at`, `email_campaign` |
+| 4 | Email Follow-Up | 0.08 | Email branch, no reply +1 d; follow-up mail out | — |
+| 5 | Replied | 0.12 | They answered (either branch) | `replied_at` |
+| 6 | Ghost Follow-Up | 0.12 | Agreed, then went quiet; follow-up out | — |
+| 7 | Discovery Call | 0.25 | Meeting booked. **Handover: analyst → Pod Lead** | `gmeet1_link`, `gmeet1_date` |
+| 8 | One Pager Requested | 0.30 | They asked for the one-pager | — |
+| 9 | One Pager Follow-Up | 0.30 | One-pager promised, chasing | — |
+| 10 | One Pager Shared | 0.35 | Collateral sent (ex "One Pager + Deck Shared") | `one_pager_sent_date`, `gmeet1_outcome` |
+| 11 | Internal Evaluation (Sample) | 0.40 | We are judging their ops data on paper | `ops_data_types`, `systems_of_record`, `internal_eval_result` |
+| 12 | Samples Requested | 0.45 | Good fit; asked for a sample | `sample_requested_date` |
+| 13 | Sample Follow-Up | 0.45 | Nothing yet; email + call-back, 1–2 d | — |
+| 14 | Sample Received + Quality Check | 0.55 | Sample in hand; judged on quality. **Handover: Pod Lead → Pod Head** | `sample_quality_score`, `sample_format`, `sample_pii_flags` |
+| 15 | Commercial Negotiations | 0.65 | Quality good; talking price | `deal_value_range` |
+| 16 | Deal Contract Signed | 0.80 | Signed, incl. DPA / scrub plan | `data_delivery_timeline` |
+| 17 | Token Amount Paid | 0.85 | Token paid **after signing** (v2 moved this from pre-negotiation) | `token_amount`, `token_paid_date` |
+| 18 | Data Migration Done | 0.90 | Assets transferred | `migration_volume`, `migration_record_count`, `number_of_datasets` |
+| 19 | Payment Initiation | 0.95 | Paying the balance | `cost` |
+| 20 | Closed/Won | 1.0 | Done. Client + internal email — **sent manually** | — |
+
+(One extra dead stage arrived with the One Pager sub-flow:
+`Dead/One Pager Not Shared`.)
 
 Roles by LH2 names: **Lead Manager** = Pod Lead, **Lead Closer** = Pod Head.
 Never put an individual's name in this document — people rotate.
@@ -128,10 +143,17 @@ Enum discipline: writing a value that is not an option fails with
 
 ## OutFlo import (opsdata/outflo_pull_push.py)
 
-Leads come from the OutFlo campaign **Company Ops_Pilot** (`live.outflo.in`
-API, `x-api-key` auth; key `OUTFLO_API_KEY` in `.env`). Only *outcomes* are
-imported: Connected → `Cold LinkedIn Sent`, Replied → `Replied`. "Request Sent"
-/ "Checking" leads stay in OutFlo — there is no stage for "we tried".
+Leads come from **every ACTIVE OutFlo campaign whose name contains "company
+ops"** (`live.outflo.in` API, `x-api-key` auth; key `OUTFLO_API_KEY` in `.env`).
+Campaigns rotate — Pilot became Company Ops_India, then geo campaigns
+(UAE/Singapore), then Company Ops_India _All Industries; inactive campaigns
+drop out of sync scope, so stage fixes for their already-imported deals need
+one-off migrations (`deals_v3_migrate.py` was one — 77 deals, 2026-08-13).
+
+Bucket mapping (fixed 2026-08-13): OutFlo **Request Sent** ("leads processed")
+→ `Cold LinkedIn Sent`; **Connected** → `LinkedIn Connected`; **Replied** →
+`Replied`. Stage climbs that ladder only, never down. "Checking" / "Failed"
+leads stay in OutFlo.
 
 - One **deal per company** (deal name = company), one contact per person,
   associated; multi-founder companies share one deal.
@@ -140,13 +162,13 @@ imported: Connected → `Cold LinkedIn Sent`, Replied → `Replied`. "Request Se
   `outflo_assigned_account` (Anu Meena / Kartik Pillai) so deals can be
   re-split if Anu gets a seat.
 - Provenance frozen at import: `lead_source` = `Outflo Outreach ( Startups )`,
-  `outflo_status` (Connected/Replied), `outflo_campaign`, `outflo_lead_id`,
-  `outflo_last_action_at`.
+  `outflo_status` (Request Sent/Connected/Replied), `outflo_campaign`,
+  `outflo_lead_id`, `outflo_last_action_at`.
 - `replied_at` = timestamp of the last conversation message *when the lead sent
   it*, else OutFlo's Last Action At (approximation, documented).
-- Idempotent: matched by `outflo_lead_id` then deal name; stage only ever
-  promotes `Cold LinkedIn Sent` → `Replied`; deals a human moved further are
-  never touched. Re-run any time to sync new connects/replies.
+- Idempotent: matched by `outflo_lead_id` then normalized deal name; stage only
+  ever climbs `Cold LinkedIn Sent` → `LinkedIn Connected` → `Replied`; deals a
+  human moved anywhere else are never touched. Re-run any time.
 - No phones are pushed: OutFlo carries none, and unverified numbers are banned.
 
 ## Gmail cold-email import (opsdata/gmail_pull_push.py)

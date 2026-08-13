@@ -34,11 +34,18 @@ REMOVE = {"Cold Lead", "Dead/Cold/WrongFit",
           "Dead/No Interest from Demand/Wrong Fit-Rejected"}
 
 # label -> probability, in v2 display order; None = create new
+# 2026-08-13: spec re-synced to the LIVE pipeline — the team evolved it in the
+# HubSpot UI (added LinkedIn Connected + the One Pager sub-flow, renamed
+# Message Back -> LinkedIn Follow-Up, One Pager + Deck Shared -> One Pager
+# Shared, retuned probabilities). OutFlo bucket mapping per user fix:
+# Leads Processed -> Cold LinkedIn Sent, Connected -> LinkedIn Connected.
 V2_LIVE = [
-    ("Cold LinkedIn Sent", 0.05), ("Email Campaign Sent", 0.05),
-    ("Message Back (Email + 2nd Msg)", 0.08), ("Email Follow-Up", 0.08),
+    ("Cold LinkedIn Sent", 0.03), ("LinkedIn Connected", 0.05),
+    ("LinkedIn Follow-Up", 0.08), ("Email Campaign Sent", 0.05),
+    ("Email Follow-Up", 0.08),
     ("Replied", 0.12), ("Ghost Follow-Up", 0.12), ("Discovery Call", 0.25),
-    ("One Pager + Deck Shared", 0.35), ("Internal Evaluation (Sample)", 0.40),
+    ("One Pager Requested", 0.30), ("One Pager Follow-Up", 0.30),
+    ("One Pager Shared", 0.35), ("Internal Evaluation (Sample)", 0.40),
     ("Samples Requested", 0.45), ("Sample Follow-Up", 0.45),
     ("Sample Received + Quality Check", 0.55), ("Commercial Negotiations", 0.65),
     ("Deal Contract Signed", 0.80), ("Token Amount Paid", 0.85),
@@ -47,7 +54,7 @@ V2_LIVE = [
 V2_WON = "Closed/Won"
 V2_DEAD = [
     "Dead/Cold/Not Interested", "Dead/Cold/No Reply", "Dead/Interested/No Show",
-    "Dead/Discovery Call/Privacy Concerns",
+    "Dead/Discovery Call/Privacy Concerns", "Dead/One Pager Not Shared",
     "Dead/Sample Not Collected/Wrong Fit-Rejected",
     "Dead/Sample Not Received/Company No Show", "Dead/Sample/Bad Quality",
     "Dead/Negotiations/Pricing", "Dead/Negotiations/Contractual",
@@ -136,13 +143,15 @@ def main():
     stages = []
 
     def entry(label, prob, closed_won=False, old_label=None):
-        src = cur.get(old_label or label)
+        # fall back to the current label so re-runs after a completed rename
+        # keep the stage instead of treating it as new (delete + create)
+        src = (cur.get(old_label) if old_label else None) or cur.get(label)
         st = {"label": label, "displayOrder": len(stages),
               "metadata": {"isClosed": "true" if (closed_won or prob == 0.0) else "false",
                            "probability": str(prob)}}
         if src:
             st["id"] = src["id"]
-        stages.append((st, "RENAME" if (old_label and old_label != label) else
+        stages.append((st, "RENAME" if (old_label and cur.get(old_label)) else
                        ("KEEP" if src else "NEW")))
 
     old_of = {v: k for k, v in RENAME.items()}

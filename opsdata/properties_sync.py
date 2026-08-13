@@ -67,7 +67,7 @@ NEW = {
     # OutFlo import provenance — frozen at import time; the deal's stage moves on,
     # these record how the lead arrived
     "outflo_status":       dict(label="OutFlo Status (at import)", type="enumeration", fieldType="select",
-                                options=opts("Connected", "Replied")),
+                                options=opts("Connected", "Replied", "Request Sent")),
     "outflo_campaign":     dict(label="OutFlo Campaign", type="string", fieldType="text"),
     "outflo_lead_id":      dict(label="OutFlo Lead ID", type="string", fieldType="text"),
     "outflo_assigned_account": dict(label="OutFlo Sender Account", type="string", fieldType="text"),
