@@ -99,12 +99,16 @@ def mailer_guard():
                  "everyone on a bulk owner write. Disable it first.")
 
 def pull_outflo():
-    # geography expansion means several ACTIVE 'Company Ops' campaigns can run
-    # at once (India, UAE, ...) — sync them all; each lead remembers its own
+    # several 'Company Ops' campaigns run at once (geo/batch rotation) and
+    # PAUSED ones keep their leads — pausing a campaign must not silently drop
+    # its pipeline out of sync scope (learned when Company Ops_India was paused
+    # holding ~190 unimported request-sent leads). DRAFT campaigns have sent
+    # nothing and stay out.
     camps = outflo("/api/public/campaigns")["campaigns"]
-    hits = [c for c in camps if "company ops" in c["name"].lower() and c["status"] == "ACTIVE"]
+    hits = [c for c in camps if "company ops" in c["name"].lower()
+            and c["status"] in ("ACTIVE", "PAUSED")]
     if not hits:
-        sys.exit("ABORT: no ACTIVE 'company ops' campaign found")
+        sys.exit("ABORT: no ACTIVE/PAUSED 'company ops' campaign found")
 
     push, replied_at = [], {}
     for camp in hits:
