@@ -1,0 +1,81 @@
+name: OutFlo → HubSpot sync
+
+# The 10:30 IST daily refresh — see docs/OUTFLO_RUNBOOK.md.
+#
+# Runs here rather than on a laptop cron because no machine owns the schedule:
+# a laptop runs it only while awake and online, and a day it silently didn't run
+# looks exactly like a day with no new leads.
+#
+# The cron list is DENSE on purpose — do not tidy it. GitHub `schedule` is
+# best-effort: measured elsewhere in this org (lh2-pipeline), it delivered
+# ~50 of ~336 slots over two weeks (~15%); dropped, not queued, and worst at
+# the top of the hour. Four
+# attempts on odd minutes is what makes 10:30 a schedule instead of a lottery
+# ticket. The repeats are safe because the sync is idempotent — a second run
+# the same day creates nothing and promotes nothing. That is only true of this
+# lead sync: anything that sends mail needs an at-most-once claim instead, not
+# this pattern.
+#
+# 05:00 UTC = 10:30 IST.
+#
+# Required secrets: HUBSPOT_API_KEY (portal 246897735), OUTFLO_API_KEY
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the plan without writing to HubSpot"
+        type: boolean
+        required: false
+        default: false
+  schedule:
+    - cron: "3,17,33,49 5 * * *"
+
+permissions:
+  contents: read
+
+# Queue, never cancel: an apply killed mid-run leaves HubSpot part-written with
+# no audit JSON dumped. The next run is idempotent and picks up the rest.
+concurrency:
+  group: outflo-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Pull OutFlo leads into HubSpot
+        env:
+          # _env() falls back to the process environment; nothing goes to disk.
+          HUBSPOT_API_KEY: ${{ secrets.HUBSPOT_API_KEY }}
+          OUTFLO_API_KEY: ${{ secrets.OUTFLO_API_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        # Inputs travel through env, never interpolated into the script body —
+        # `${{ }}` is substituted before bash parses the line, and both API keys
+        # are in scope right here.
+        run: |
+          set -euo pipefail
+          if [ -z "${HUBSPOT_API_KEY:-}" ] || [ -z "${OUTFLO_API_KEY:-}" ]; then
+            echo "::error::HUBSPOT_API_KEY / OUTFLO_API_KEY not set — refusing to run."
+            exit 1
+          fi
+          ARGS=()
+          if [ "${DRY_RUN:-false}" != "true" ]; then ARGS+=(--apply); fi
+          python3 opsdata/outflo_pull_push.py "${ARGS[@]}"
+
+      # The audit JSON is the undo map for everything a run created or promoted.
+      # A runner's filesystem dies with the job, so it must be uploaded or lost.
+      - name: Keep the audit trail
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: outflo-audit-${{ github.run_id }}
+          path: audit/*.json
+          if-no-files-found: ignore
+          retention-days: 90

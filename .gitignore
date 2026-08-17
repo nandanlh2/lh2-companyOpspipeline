@@ -8,5 +8,8 @@ __pycache__/
 *.pyc
 .venv/
 
-# Audit dumps are local run artifacts, keep them out of the repo
+# Audit dumps and scheduled-run logs are local run artifacts, keep them out of
+# the repo. The .log line matters: the runbook's cron line redirects into
+# audit/cron.log, which is not a .json and would otherwise be committed.
 audit/*.json
+audit/*.log

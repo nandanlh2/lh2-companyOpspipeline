@@ -34,12 +34,17 @@ AUTOMATON = re.compile(r"postmaster|mailer-daemon|no-?reply|donotreply", re.I)
 AUTO_SUBJ = re.compile(r"automatic reply|auto-?reply|out of office|ooto|undeliverable", re.I)
 
 def _env():
-    d = {}
-    with open(os.path.join(ROOT, ".env"), encoding="utf-8") as f:
-        for line in f:
-            if "=" in line and not line.lstrip().startswith("#"):
-                k, v = line.strip().split("=", 1)
-                d[k] = v.strip()
+    # .env when running by hand; process env on a CI runner, where secrets
+    # arrive as repo-secret env vars and must never be written to disk.
+    # The file wins where both exist, so a laptop override stays possible.
+    d = dict(os.environ)
+    path = os.path.join(ROOT, ".env")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                if "=" in line and not line.lstrip().startswith("#"):
+                    k, v = line.strip().split("=", 1)
+                    d[k] = v.strip()
     return d
 
 ENV = _env()
