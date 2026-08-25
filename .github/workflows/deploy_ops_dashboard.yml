@@ -52,13 +52,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Re-asserts the Pages site and sets its source to Actions on every run. On the sales repo
-      # deploy-pages started hanging at in_progress while GET /repos/<repo>/pages returned 404 —
-      # the Pages site had got into a bad state. `enablement: true` recreates it rather than
-      # needing someone to toggle Settings -> Pages by hand.
+      # Reads the repo's Pages config so later steps know where to deploy.
+      #
+      # NO `enablement: true` here. That flag makes the action CREATE the Pages site via the
+      # API, which the automatic GITHUB_TOKEN is not permitted to do — it fails with
+      # "Resource not accessible by integration" before anything else runs. The flag can
+      # re-assert an EXISTING site (which is why the sales repo carries it, to recover a site
+      # that had got into a bad state) but it cannot create the first one.
+      #
+      # Pages must therefore be enabled once by hand:
+      #   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
       - uses: actions/configure-pages@v6
-        with:
-          enablement: true
 
       - uses: actions/setup-python@v5
         with:
