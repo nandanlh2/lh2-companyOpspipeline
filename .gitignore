@@ -13,3 +13,8 @@ __pycache__/
 # audit/cron.log, which is not a .json and would otherwise be committed.
 audit/*.json
 audit/*.log
+
+# Dashboard build output. Regenerated from live HubSpot on every run, so a committed copy is
+# only ever a stale snapshot that looks authoritative in a diff. CI builds it fresh and uploads
+# it straight to the Pages artifact — it never needs to be in the repo.
+dashboard/ops_dashboard_data.json

@@ -1,0 +1,1498 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LH2 · Company Ops Pipeline</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #FAF8F3;
+            --card: #FFFFFF;
+            --card-border: #ECE6D8;
+            --ink: #22262E;
+            --ink-dim: #767D8A;
+            --ink-faint: #A3AAB6;
+
+            --blue: #3E7BFA;
+            --blue-tint: #E4EEFD;
+            --tan: #B08A3E;
+            --tan-tint: #F1EAD9;
+            --peach: #D98A2E;
+            --peach-tint: #FBE7D2;
+            --green: #1F9D6B;
+            --green-tint: #E1F3E9;
+            --purple: #6C5CE7;
+            --purple-tint: #EAE6FB;
+            --grey-tint: #F0EEE8;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .wrap {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 26px 22px 70px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mark {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            background: linear-gradient(155deg, var(--blue), var(--purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 12px;
+            color: #fff;
+            letter-spacing: -0.3px;
+            flex-shrink: 0;
+        }
+
+        .brand-text .eyebrow {
+            font-size: 10.5px;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: var(--ink-faint);
+            font-weight: 600;
+        }
+
+        .brand-text h1 {
+            margin: 1px 0 0;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 19px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: var(--ink);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .segmented {
+            display: flex;
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 9px;
+            padding: 3px;
+        }
+
+        .segmented button {
+            border: none;
+            background: transparent;
+            padding: 6px 13px;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: var(--ink-dim);
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .segmented button.active {
+            background: var(--ink);
+            color: #fff;
+        }
+
+        .custom-range {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 9px;
+            padding: 6px 10px;
+        }
+
+        .custom-range.show {
+            display: flex;
+        }
+
+        .custom-range span {
+            font-size: 11px;
+            color: var(--ink-faint);
+        }
+
+        .custom-range input {
+            border: none;
+            background: transparent;
+            font-size: 12.5px;
+            color: var(--ink);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-add {
+            background: var(--ink);
+            color: #fff;
+            border: none;
+            padding: 9px 15px;
+            border-radius: 9px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-add:hover {
+            filter: brightness(1.15);
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .section-top h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 17px;
+            font-weight: 600;
+            margin: 0;
+            color: var(--ink);
+        }
+
+        .section-top .tag {
+            font-size: 11px;
+            color: var(--ink-faint);
+            font-weight: 500;
+        }
+
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .kpi-row.cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .kpi {
+            border-radius: 14px;
+            padding: 16px 16px 15px;
+            background: var(--grey-tint);
+        }
+
+        .kpi .label {
+            font-size: 12px;
+            color: var(--ink-dim);
+            font-weight: 500;
+            margin-bottom: 9px;
+        }
+
+        .kpi .row {
+            display: flex;
+            align-items: baseline;
+            gap: 9px;
+            flex-wrap: wrap;
+        }
+
+        .kpi .value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 29px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .kpi .badge {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11.5px;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.65);
+            color: var(--ink-dim);
+        }
+
+        .kpi .split {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+            padding-top: 9px;
+            border-top: 1px solid rgba(255, 255, 255, 0.7);
+        }
+
+        .kpi .split-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            color: var(--ink-dim);
+        }
+
+        .kpi .split-item b {
+            color: var(--ink);
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+        }
+
+        .kpi .split-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 14px;
+        }
+
+        .chart-grid.thirds {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+
+        .panel-head h3 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0;
+            color: var(--ink);
+        }
+
+        .chip {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--ink-dim);
+            background: var(--grey-tint);
+            padding: 3px 9px;
+            border-radius: 20px;
+        }
+
+        /* funnel */
+        .funnel-row {
+            margin-bottom: 11px;
+        }
+
+        .funnel-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .funnel-top {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12.5px;
+            color: var(--ink-dim);
+            margin-bottom: 5px;
+        }
+
+        .funnel-top b {
+            color: var(--ink);
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+        }
+
+        .funnel-track {
+            height: 26px;
+            background: var(--grey-tint);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .funnel-fill {
+            height: 100%;
+            border-radius: 6px;
+            min-width: 6px;
+            transition: width .5s ease;
+        }
+
+        /* grouped bars (reply vs show) */
+        .grp-row {
+            margin-bottom: 16px;
+        }
+
+        .grp-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .grp-label {
+            font-size: 12.5px;
+            color: var(--ink);
+            font-weight: 500;
+            margin-bottom: 7px;
+        }
+
+        .grp-bar-track {
+            height: 10px;
+            background: var(--grey-tint);
+            border-radius: 5px;
+            margin-bottom: 5px;
+            overflow: hidden;
+        }
+
+        .grp-bar-fill {
+            height: 100%;
+            border-radius: 5px;
+        }
+
+        .grp-legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 14px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            color: var(--ink-dim);
+        }
+
+        .legend-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 3px;
+        }
+
+        /* stacked column (weekly by channel) */
+        .col-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 9px;
+            height: 130px;
+            padding: 0 2px;
+        }
+
+        .col-week {
+            font-size: 9px;
+            color: var(--ink-faint);
+            text-align: center;
+            margin-top: 6px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .col-wrap {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            height: 100%;
+            justify-content: flex-end;
+        }
+
+        .col-item {
+            display: flex;
+            flex-direction: column-reverse;
+            border-radius: 4px 4px 0 0;
+            overflow: hidden;
+        }
+
+        /* stacked status bar */
+        .status-row {
+            margin-bottom: 16px;
+        }
+
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-label {
+            font-size: 12.5px;
+            color: var(--ink);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .status-track {
+            height: 16px;
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            background: var(--grey-tint);
+        }
+
+        .status-seg {
+            height: 100%;
+        }
+
+        .status-legend {
+            display: flex;
+            gap: 14px;
+            margin-top: 6px;
+        }
+
+        .status-legend .legend-item {
+            font-size: 11px;
+        }
+
+        /* number + sparkline */
+        .num-trend .big {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 4px;
+        }
+
+        .num-trend .sub {
+            font-size: 12px;
+            color: var(--ink-dim);
+            margin-bottom: 14px;
+        }
+
+        /* hot pipeline / list */
+        .lead-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px 24px;
+        }
+
+        .lead-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 11px 0;
+            border-bottom: 1px solid var(--card-border);
+            cursor: pointer;
+        }
+
+        .lead-item:hover .co {
+            color: var(--blue);
+        }
+
+        .lead-item .co {
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--ink);
+            transition: color .15s;
+        }
+
+        .stage-chip {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+
+        .empty {
+            padding: 36px 20px;
+            text-align: center;
+            color: var(--ink-faint);
+            font-size: 13px;
+        }
+
+        .empty .btn-add {
+            margin-top: 12px;
+        }
+
+        /* full table */
+        .table-panel {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            text-align: left;
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--ink-faint);
+            font-weight: 600;
+            padding: 8px 20px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        tbody td {
+            padding: 12px 20px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--card-border);
+            color: var(--ink);
+        }
+
+        tbody tr {
+            cursor: pointer;
+        }
+
+        tbody tr:hover {
+            background: #FBFAF6;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .muted {
+            color: var(--ink-faint);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+        }
+
+        /* modal */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(30, 26, 20, 0.45);
+            backdrop-filter: blur(2px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            padding: 20px;
+        }
+
+        .overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: #fff;
+            border-radius: 18px;
+            width: 100%;
+            max-width: 560px;
+            max-height: 88vh;
+            overflow-y: auto;
+            padding: 26px;
+        }
+
+        .modal h3 {
+            font-family: 'Space Grotesk', sans-serif;
+            margin: 0 0 4px;
+            font-size: 17px;
+            color: var(--ink);
+        }
+
+        .modal .modal-sub {
+            font-size: 12px;
+            color: var(--ink-faint);
+            margin-bottom: 18px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            color: var(--ink-dim);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .field input[type=text] {
+            width: 100%;
+            background: var(--grey-tint);
+            border: 1px solid var(--card-border);
+            color: var(--ink);
+            padding: 10px 12px;
+            border-radius: 9px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .field input[type=text]:focus {
+            border-color: var(--blue);
+        }
+
+        .stage-group-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--ink-faint);
+            margin: 16px 0 8px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stage-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 6px;
+            border-radius: 9px;
+        }
+
+        .stage-item:hover {
+            background: var(--grey-tint);
+        }
+
+        .stage-item input[type=checkbox] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+            accent-color: var(--blue);
+        }
+
+        .stage-item label {
+            font-size: 13px;
+            color: var(--ink);
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .stage-item .stamp {
+            font-size: 10.5px;
+            color: var(--ink-faint);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .channel-select {
+            font-size: 11.5px;
+            padding: 4px 8px;
+            border-radius: 7px;
+            border: 1px solid var(--card-border);
+            background: #fff;
+            color: var(--ink-dim);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .value-field {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0 4px 26px;
+        }
+
+        .value-field label {
+            font-size: 11.5px;
+            color: var(--ink-faint);
+        }
+
+        .value-field input {
+            width: 110px;
+            font-size: 12.5px;
+            padding: 5px 8px;
+            border-radius: 7px;
+            border: 1px solid var(--card-border);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--card-border);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid var(--card-border);
+            color: var(--ink-dim);
+            padding: 9px 14px;
+            border-radius: 9px;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: #C0453A;
+            border: 1px solid #F0D3CF;
+            padding: 9px 14px;
+            border-radius: 9px;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .modal-actions-right {
+            display: flex;
+            gap: 8px;
+        }
+
+        .note {
+            font-size: 11px;
+            color: var(--ink-faint);
+            margin-top: 10px;
+        }
+
+        @media(max-width:920px) {
+            .kpi-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .chart-grid,
+            .chart-grid.thirds {
+                grid-template-columns: 1fr;
+            }
+
+            .lead-list {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* --- additions for the ops board: owner picker, build stamp, note flag, token line --- */
+        .owner-select {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            color: var(--ink);
+            padding: 8px 12px;
+            border-radius: 9px;
+            font-size: 12.5px;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+        }
+
+        .stamp-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11.5px;
+            color: var(--ink-faint);
+            font-family: 'IBM Plex Mono', monospace;
+            margin: -18px 0 26px;
+        }
+
+        .stamp-bar .dot {
+            opacity: .5;
+        }
+
+        .note-flag {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            background: var(--tan-tint);
+            color: var(--tan);
+            padding: 2px 5px;
+            border-radius: 4px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .token-line {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid var(--card-border);
+            font-size: 12px;
+            color: var(--ink-dim);
+            flex-wrap: wrap;
+        }
+
+        .token-line b {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 16px;
+            color: var(--ink);
+        }
+
+        .token-line .token-label {
+            font-size: 12px;
+            color: var(--ink-dim);
+        }
+
+        .footnote {
+            font-size: 11.5px;
+            color: var(--ink-faint);
+            line-height: 1.6;
+            border-top: 1px solid var(--card-border);
+            padding-top: 16px;
+            margin-top: 8px;
+        }
+
+        .footnote b {
+            color: var(--ink-dim);
+            font-weight: 600;
+        }
+
+        tbody tr {
+            cursor: default;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+
+        <header>
+            <div class="brand">
+                <div class="mark">LH2</div>
+                <div class="brand-text">
+                    <div class="eyebrow">LH2 AI Labs · Data Partnerships</div>
+                    <h1>Company Ops · Pipeline Overview</h1>
+                </div>
+            </div>
+            <div class="header-controls">
+                <div class="segmented" id="rangeSeg">
+                    <button data-r="today">Today</button>
+                    <button data-r="wtd">WTD</button>
+                    <button data-r="mtd">MTD</button>
+                    <button data-r="total" class="active">Total</button>
+                    <button data-r="custom">Custom</button>
+                </div>
+                <div class="custom-range" id="customRange">
+                    <span>From</span><input type="date" id="fromDate" />
+                    <span>To</span><input type="date" id="toDate" />
+                </div>
+                <select class="owner-select" id="ownerSelect">
+                    <option value="">Everyone</option>
+                </select>
+            </div>
+        </header>
+
+        <div class="stamp-bar">
+            <span id="genStamp">Loading…</span>
+            <span class="dot">·</span>
+            <span id="dealCount"></span>
+        </div>
+
+        <!-- SECTION 1: INPUT MATRIX -->
+        <div class="section">
+            <div class="section-top">
+                <h2>Outreach &amp; Response</h2>
+                <span class="tag">Input Matrix</span>
+            </div>
+            <div class="kpi-row" id="kpiInput"></div>
+            <div class="chart-grid">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h3>Outreach &amp; response funnel</h3><span class="chip">Funnel</span>
+                    </div>
+                    <div id="inputFunnel"></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-head">
+                        <h3>Reply rate by channel</h3><span class="chip">Grouped bar</span>
+                    </div>
+                    <div id="channelGrouped"></div>
+                    <div class="grp-legend" id="channelLegend"></div>
+                </div>
+            </div>
+            <div class="chart-grid thirds" style="margin-top:14px;">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h3>Outreach volume by channel</h3><span class="chip">Stacked column</span>
+                    </div>
+                    <div class="col-chart" id="volumeChart"></div>
+                    <div class="grp-legend" style="margin-top:12px;">
+                        <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>LinkedIn
+                        </div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#AFC9FA"></span>Email</div>
+                    </div>
+                </div>
+                <div class="panel num-trend">
+                    <div class="panel-head">
+                        <h3>Discovery call show rate</h3><span class="chip">Number + trend</span>
+                    </div>
+                    <div class="big" id="showRateBig">0%</div>
+                    <div class="sub" id="showRateSub">of calls set up were attended</div>
+                    <svg id="showRateSpark" width="100%" height="46" viewBox="0 0 260 46"
+                        preserveAspectRatio="none"></svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 2: MATERIALS & SAMPLES -->
+        <div class="section">
+            <div class="section-top">
+                <h2>Materials &amp; Samples</h2>
+                <span class="tag">Outcome Matrix</span>
+            </div>
+            <div class="kpi-row" id="kpiMaterials"></div>
+            <div class="chart-grid">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h3>Materials &amp; sample funnel</h3><span class="chip">Funnel</span>
+                    </div>
+                    <div id="materialsFunnel"></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-head">
+                        <h3>Sample quality</h3><span class="chip">Distribution</span>
+                    </div>
+                    <div id="qualityDist"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 3: COMMERCIALS -->
+        <div class="section">
+            <div class="section-top">
+                <h2>Commercials &amp; Close</h2>
+                <span class="tag">Outcome Matrix</span>
+            </div>
+            <div class="kpi-row" id="kpiCommercial"></div>
+            <div class="chart-grid">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h3>Commercial funnel</h3><span class="chip">Funnel</span>
+                    </div>
+                    <div id="commercialFunnel"></div>
+                </div>
+                <div class="panel num-trend">
+                    <div class="panel-head">
+                        <h3>Value won</h3><span class="chip">Number + trend</span>
+                    </div>
+                    <div class="big" id="valueWonBig">$0</div>
+                    <div class="sub" id="valueWonSub">closed in range</div>
+                    <svg id="valueWonSpark" width="100%" height="46" viewBox="0 0 260 46"
+                        preserveAspectRatio="none"></svg>
+                    <div class="token-line" id="tokenLine"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 4: DROP-OFF -->
+        <div class="section">
+            <div class="section-top">
+                <h2>Where the funnel leaks</h2>
+                <span class="tag" id="deadCount"></span>
+            </div>
+            <div class="panel">
+                <div id="dropOff"></div>
+                <div class="empty" id="dropEmpty" style="display:none;">No deals have died in this range.</div>
+            </div>
+        </div>
+
+        <!-- HOT PIPELINE -->
+        <div class="section">
+            <div class="section-top">
+                <h2>Hot Pipeline</h2>
+                <span class="tag" id="hotCount"></span>
+            </div>
+            <div class="table-panel">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Company</th>
+                            <th>Stage</th>
+                            <th>Owner</th>
+                            <th>Value</th>
+                            <th>Last move</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hotBody"></tbody>
+                </table>
+                <div class="empty" id="hotEmpty" style="display:none;">Nothing past first reply right now.</div>
+            </div>
+        </div>
+
+        <div class="footnote">
+            Live from HubSpot · Company Ops Data pipeline · rebuilt on a schedule, read-only.
+            Every count is the number of times a deal <b>entered</b> a stage on that day (IST), not the
+            number of deals sitting at it.
+        </div>
+
+    </div>
+
+    <script>
+        /* Company Ops dashboard — read-only view over ops_dashboard_data.json.
+         *
+         * The data model matches the builder exactly: a row carries, per metric, a list of
+         * [IST-day, actor-owner-id] pairs for every time that deal ENTERED a qualifying stage.
+         * Counting is therefore "events in range", never "deals currently at or past stage X" —
+         * which is what makes Today and WTD mean anything.
+         *
+         * There is no add/edit anywhere in here on purpose. HubSpot is the source of truth; a second
+         * place to type a milestone is a second version of it.
+         */
+
+        // Stage keys, labels and order live here and MUST match METRICS in build_ops_dashboard.py.
+        // Grouped exactly as the pipeline flows so the funnel reads top to bottom.
+        const INPUT_STAGES = [
+            { key: 'outreach', label: 'Cold Outreach — LinkedIn/Email', color: '#3E7BFA' },
+            { key: 'liConnected', label: 'LinkedIn Connected', color: '#4C85FB' },
+            { key: 'outreachFollowUp', label: 'Follow-Up Sent', color: '#5B93FB' },
+            { key: 'interestSent', label: '1st Interest Email Sent', color: '#6FA2FC', note: true },
+            { key: 'outreachReplied', label: 'Replied', color: '#2BAF87' },
+            { key: 'ghostFollowUp', label: 'Ghost Follow-Up', color: '#39C39A' },
+            { key: 'vcSetup', label: 'Discovery Call Set Up', color: '#E2963C' },
+            { key: 'vcAttended', label: 'Discovery Call Attended', color: '#C98A2E' },
+        ];
+        const MATERIAL_STAGES = [
+            { key: 'onePagerRequested', label: 'One-Pager Requested', color: '#E2963C' },
+            { key: 'onePagerFollowUp', label: 'One-Pager Follow-Up', color: '#D9A24F' },
+            { key: 'onePagerSent', label: 'One-Pager Sent', color: '#2BAF87' },
+            { key: 'onePagerReceived', label: 'One-Pager Received', color: '#39C39A', note: true },
+            { key: 'internalEval', label: 'Internal Evaluation (Sample)', color: '#8FAE3D' },
+            { key: 'samplesRequested', label: 'Samples Requested', color: '#B08A3E' },
+            { key: 'sampleFollowUp', label: 'Sample Follow-Up', color: '#C09A50' },
+            { key: 'samplesReceived', label: 'Samples Received', color: '#1F9D6B' },
+        ];
+        const COMMERCIAL_STAGES = [
+            { key: 'negotiationDone', label: 'Negotiation Calls Done', color: '#8C7AE6' },
+            { key: 'contractSigned', label: 'Contract Signed', color: '#6C5CE7' },
+            { key: 'tokenPaid', label: 'Token Amount Paid', color: '#7B6BE8' },
+            { key: 'migrationDone', label: 'Data Migration Done', color: '#5B8DEF' },
+            { key: 'paymentInitiation', label: 'Payment Initiation', color: '#3FA796' },
+            { key: 'dealWon', label: 'Deal Won / Closed', color: '#1F9D6B' },
+        ];
+        // KPI strips show the headline few; the funnel below each shows every stage. Showing all 8 as
+        // KPI tiles would wrap to three rows and bury the numbers people actually read.
+        const INPUT_KPI = ['outreach', 'outreachReplied', 'vcSetup', 'vcAttended'];
+        const MATERIAL_KPI = ['onePagerSent', 'internalEval', 'samplesRequested', 'samplesReceived'];
+        const COMMERCIAL_KPI = ['negotiationDone', 'contractSigned', 'tokenPaid', 'dealWon'];
+
+        let DATA = { rows: [], team: [], generated: '' };
+        let rows = [];
+        let currentPreset = 'total';
+        let currentOwner = '';
+
+        const OWNERS = {};
+
+        function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function fmtUSD(n) { if (!n) return '$0'; if (n >= 1000) return '$' + (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'K'; return '$' + Math.round(n); }
+        function fmtDay(d) { if (!d) return '—'; const p = d.split('-'); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+
+        /* ---------- IST day arithmetic ----------
+         * Every day in the data is an IST calendar day string. The browser could be anywhere, so the
+         * range is computed in IST too and compared as strings — no Date objects, no timezone drift,
+         * no off-by-one at the boundary. The portal's own dates are never used for this.
+         */
+        const IST_OFFSET = 5.5 * 3600000;
+        function istNow() { return new Date(Date.now() + IST_OFFSET); }
+        function istToday() { return istNow().toISOString().slice(0, 10); }
+        function shiftDay(day, n) {
+            const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n);
+            return d.toISOString().slice(0, 10);
+        }
+        function daysApart(a, b) { return Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000); }
+
+        function getRange() {
+            const today = istToday();
+            if (currentPreset === 'total') return { from: null, to: null };
+            if (currentPreset === 'today') return { from: today, to: today };
+            if (currentPreset === 'wtd') {
+                // Week starts Monday, matching the sales dashboard so the two boards never disagree about
+                // what "this week" is.
+                const dow = (istNow().getUTCDay() + 6) % 7;
+                return { from: shiftDay(today, -dow), to: today };
+            }
+            if (currentPreset === 'mtd') return { from: today.slice(0, 8) + '01', to: today };
+            if (currentPreset === 'custom') {
+                const f = document.getElementById('fromDate').value;
+                const t = document.getElementById('toDate').value;
+                return { from: f || null, to: t || null };
+            }
+            return { from: null, to: null };
+        }
+        /* The immediately preceding window of the same length, for the growth badge.
+         * Today compares to yesterday, a 7-day week to the 7 days before it. */
+        function getPrevRange(from, to) {
+            if (!from || !to) return { from: null, to: null };
+            const len = daysApart(from, to) + 1;
+            return { from: shiftDay(from, -len), to: shiftDay(from, -1) };
+        }
+        function inRange(day, from, to) {
+            if (!day) return false;
+            if (from && day < from) return false;
+            if (to && day > to) return false;
+            return true;
+        }
+
+        /* ---------- counting ----------
+         * ONE function counts every metric on the page. Notes and stages share the shape, so the
+         * front end cannot treat a note-derived KPI differently from a stage-derived one by accident.
+         */
+        function countMetric(key, from, to, owner) {
+            let n = 0;
+            for (const d of rows) {
+                const evs = d.m[key];
+                if (!evs) continue;
+                for (const [day, who] of evs) {
+                    if (!inRange(day, from, to)) continue;
+                    // Activity is credited to the ACTOR, not the current owner — the analyst who booked the
+                    // call keeps it after the handover to the Pod Lead. Asset facts carry no actor, so an
+                    // owner filter falls back to who holds the deal.
+                    if (owner && (who ? who !== owner : d.o !== owner)) continue;
+                    n++;
+                }
+            }
+            return n;
+        }
+        function wonValue(from, to, owner, field) {
+            let sum = 0;
+            for (const d of rows) {
+                const evs = d.m.dealWon || [];
+                const hit = evs.some(([day]) => inRange(day, from, to));
+                if (!hit) continue;
+                if (owner && d.o !== owner) continue;
+                sum += Number(d[field] || 0);
+            }
+            return sum;
+        }
+
+        /* ---------- KPI strip ---------- */
+        const TINTS = ['var(--blue-tint)', 'var(--green-tint)', 'var(--peach-tint)', 'var(--tan-tint)'];
+        function renderKpiRow(containerId, keys, allStages) {
+            const { from, to } = getRange();
+            const prev = getPrevRange(from, to);
+            const el = document.getElementById(containerId);
+            el.innerHTML = keys.map((k, i) => {
+                const s = allStages.find(x => x.key === k);
+                const c = countMetric(k, from, to, currentOwner);
+                let badge;
+                if (i === 0) {
+                    if (prev.from) {
+                        const p = countMetric(k, prev.from, prev.to, currentOwner);
+                        const g = p > 0 ? Math.round(((c - p) / p) * 100) : (c > 0 ? 100 : 0);
+                        badge = (g >= 0 ? '+' : '') + g + '%';
+                    } else badge = 'all time';
+                } else {
+                    // Conversion against the previous KPI in the strip, which is what the tile above it is.
+                    const prevKey = keys[i - 1];
+                    const pc = countMetric(prevKey, from, to, currentOwner);
+                    badge = (pc > 0 ? Math.round((c / pc) * 100) : 0) + '%';
+                }
+                let split = '';
+                if (k === 'outreach') {
+                    const li = countMetric('outreachLi', from, to, currentOwner);
+                    const em = countMetric('outreachEmail', from, to, currentOwner);
+                    split = `<div class="split">
+          <div class="split-item"><span class="split-dot" style="background:var(--blue)"></span>LinkedIn <b>${li}</b></div>
+          <div class="split-item"><span class="split-dot" style="background:#2BAF87"></span>Email <b>${em}</b></div>
+        </div>`;
+                }
+                return `<div class="kpi" style="background:${TINTS[i % 4]}">
+        <div class="label">${s.label}${s.note ? '<span class="note-flag" title="Derived from note text, not a pipeline stage">note</span>' : ''}</div>
+        <div class="row"><span class="value">${c}</span><span class="badge">${badge}</span></div>
+        ${split}
+      </div>`;
+            }).join('');
+        }
+
+        /* ---------- funnel ---------- */
+        function renderFunnel(containerId, stages) {
+            const { from, to } = getRange();
+            const counts = stages.map(s => countMetric(s.key, from, to, currentOwner));
+            const max = Math.max(1, ...counts);
+            document.getElementById(containerId).innerHTML = stages.map((s, i) => {
+                const c = counts[i];
+                const pct = Math.max(c > 0 ? 4 : 0, Math.round((c / max) * 100));
+                return `<div class="funnel-row">
+        <div class="funnel-top"><span>${s.label}${s.note ? '<span class="note-flag">note</span>' : ''}</span><b>${c}</b></div>
+        <div class="funnel-track"><div class="funnel-fill" style="width:${pct}%;background:${s.color}"></div></div>
+      </div>`;
+            }).join('');
+        }
+
+        /* ---------- reply rate by channel ----------
+         * Sent is per branch; a reply has ONE stage for both branches, so it cannot be split by
+         * channel after the fact. The reply is attributed to whichever branch that deal entered on —
+         * a deal that got both (the Workline case: OutFlo lead also mailed) counts to both, exactly as
+         * both outreach events counted.
+         */
+        function renderChannelGrouped() {
+            const { from, to } = getRange();
+            const cfg = [['LinkedIn', 'outreachLi', 'var(--blue)'], ['Email', 'outreachEmail', '#2BAF87']];
+            document.getElementById('channelGrouped').innerHTML = cfg.map(([name, sentKey, color]) => {
+                let sent = 0, replied = 0;
+                for (const d of rows) {
+                    if (currentOwner && d.o !== currentOwner) continue;
+                    const s = (d.m[sentKey] || []).some(([day]) => inRange(day, from, to));
+                    if (!s) continue;
+                    sent++;
+                    if ((d.m.outreachReplied || []).some(([day]) => inRange(day, from, to))) replied++;
+                }
+                const rate = sent > 0 ? Math.round((replied / sent) * 100) : 0;
+                return `<div class="grp-row">
+        <div class="grp-label">${name} <span class="muted" style="margin-left:6px;">${replied} of ${sent}</span></div>
+        <div class="grp-bar-track"><div class="grp-bar-fill" style="width:${rate}%;background:${color}"></div></div>
+      </div>`;
+            }).join('');
+            document.getElementById('channelLegend').innerHTML =
+                `<div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>LinkedIn reply rate</div>
+     <div class="legend-item"><span class="legend-dot" style="background:#2BAF87"></span>Email reply rate</div>`;
+        }
+
+        /* ---------- weekly buckets ----------
+         * The trend charts deliberately ignore the range picker and always show the last 8 weeks.
+         * A sparkline that redraws itself to a single point when somebody clicks Today is not a trend.
+         */
+        function weekBuckets(n) {
+            const today = istToday();
+            const dow = (istNow().getUTCDay() + 6) % 7;
+            const thisMonday = shiftDay(today, -dow);
+            const weeks = [];
+            for (let i = n - 1; i >= 0; i--) {
+                const start = shiftDay(thisMonday, -7 * i);
+                weeks.push({ start, end: shiftDay(start, 6) });
+            }
+            return weeks;
+        }
+        function renderVolumeChart() {
+            const weeks = weekBuckets(8);
+            const data = weeks.map(w => ({
+                li: countMetric('outreachLi', w.start, w.end, currentOwner),
+                em: countMetric('outreachEmail', w.start, w.end, currentOwner),
+                label: fmtDay(w.start)
+            }));
+            const max = Math.max(1, ...data.map(d => d.li + d.em));
+            document.getElementById('volumeChart').innerHTML = data.map(d => {
+                const hLi = Math.round((d.li / max) * 110), hEm = Math.round((d.em / max) * 110);
+                return `<div class="col-wrap" title="${d.label}: ${d.li} LinkedIn, ${d.em} email">
+        <div class="col-item" style="height:${Math.max(hLi + hEm, 2)}px;">
+          <div style="height:${hEm}px;background:#AFC9FA;"></div>
+          <div style="height:${hLi}px;background:var(--blue);"></div>
+        </div>
+        <div class="col-week">${d.label}</div>
+      </div>`;
+            }).join('');
+        }
+        function sparkPath(values, w, h) {
+            const max = Math.max(...values, 1), min = Math.min(...values, 0);
+            const range = (max - min) || 1;
+            const stepX = w / ((values.length - 1) || 1);
+            return values.map((v, i) => `${i === 0 ? 'M' : 'L'}${(i * stepX).toFixed(1)},${(h - ((v - min) / range) * h * 0.85 - 4).toFixed(1)}`).join(' ');
+        }
+
+        function renderShowRate() {
+            const { from, to } = getRange();
+            const setup = countMetric('vcSetup', from, to, currentOwner);
+            const attended = countMetric('vcAttended', from, to, currentOwner);
+            const rate = setup > 0 ? Math.round((attended / setup) * 100) : 0;
+            document.getElementById('showRateBig').textContent = rate + '%';
+            document.getElementById('showRateSub').textContent = `${attended} of ${setup} calls set up were attended`;
+            const values = weekBuckets(8).map(w => {
+                const s = countMetric('vcSetup', w.start, w.end, currentOwner);
+                const a = countMetric('vcAttended', w.start, w.end, currentOwner);
+                return s > 0 ? Math.round((a / s) * 100) : 0;
+            });
+            document.getElementById('showRateSpark').innerHTML =
+                `<path d="${sparkPath(values, 260, 46)}" fill="none" stroke="#E2963C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+        }
+
+        function renderValueWon() {
+            const { from, to } = getRange();
+            // `cost` ("Deal Cost (USD)"), never `amount` — this flow does not write amount at all.
+            const total = wonValue(from, to, currentOwner, 'cost');
+            const wonCount = countMetric('dealWon', from, to, currentOwner);
+            document.getElementById('valueWonBig').textContent = fmtUSD(total);
+            document.getElementById('valueWonSub').textContent = `${wonCount} deal${wonCount === 1 ? '' : 's'} closed in range`;
+            let running = 0;
+            const values = weekBuckets(8).map(w => { running += wonValue(w.start, w.end, currentOwner, 'cost'); return running; });
+            document.getElementById('valueWonSpark').innerHTML =
+                `<path d="${sparkPath(values, 260, 46)}" fill="none" stroke="#6C5CE7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+            // Token is shown SEPARATELY and never folded into value won: it is paid after signing and
+            // against the same deal, so adding the two would count part of the price twice.
+            const tokPaid = countMetric('tokenPaid', from, to, currentOwner);
+            let tokSum = 0;
+            for (const d of rows) {
+                if (currentOwner && d.o !== currentOwner) continue;
+                if ((d.m.tokenPaid || []).some(([day]) => inRange(day, from, to))) tokSum += Number(d.tok || 0);
+            }
+            document.getElementById('tokenLine').innerHTML =
+                `<span class="token-label">Token paid</span><b>${fmtUSD(tokSum)}</b>
+     <span class="muted">across ${tokPaid} deal${tokPaid === 1 ? '' : 's'} — separate from value won</span>`;
+        }
+
+        /* ---------- sample quality ---------- */
+        function renderQuality() {
+            const { from, to } = getRange();
+            const bands = [['8–10 · strong', '#1F9D6B', 8, 10], ['5–7 · usable', '#B08A3E', 5, 7.99], ['0–4 · weak', '#C0453A', 0, 4.99]];
+            const got = rows.filter(d => {
+                if (currentOwner && d.o !== currentOwner) return false;
+                return (d.m.samplesReceived || []).some(([day]) => inRange(day, from, to));
+            });
+            const total = got.length;
+            if (!total) {
+                document.getElementById('qualityDist').innerHTML = `<div class="empty">No samples received in this range.</div>`;
+                return;
+            }
+            document.getElementById('qualityDist').innerHTML = bands.map(([label, color, lo, hi]) => {
+                const n = got.filter(d => d.sq >= lo && d.sq <= hi).length;
+                const pct = Math.round((n / total) * 100);
+                return `<div class="grp-row">
+        <div class="grp-label">${label} <span class="muted" style="margin-left:6px;">${n} of ${total}</span></div>
+        <div class="grp-bar-track"><div class="grp-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>`;
+            }).join('') + `<div class="muted" style="margin-top:12px;">Scored 0–10 at the quality check.</div>`;
+        }
+
+        /* ---------- drop-off ----------
+         * Grouped by the MIDDLE segment of the dead stage name — the stage it died AT. That is the
+         * only lost-reason record there is, and deliberately so.
+         */
+        function renderDropOff() {
+            const { from, to } = getRange();
+            const buckets = {};
+            let total = 0;
+            for (const d of rows) {
+                if (!d.dead || !d.db) continue;
+                if (currentOwner && d.o !== currentOwner) continue;
+                // A dead deal is placed by the last thing that happened to it that we have a date for.
+                const days = Object.values(d.m).flat().map(e => e[0]).filter(Boolean).sort();
+                const last = days.length ? days[days.length - 1] : d.c;
+                if (!inRange(last, from, to)) continue;
+                (buckets[d.db] = buckets[d.db] || { n: 0, why: {} }).n++;
+                buckets[d.db].why[d.sl] = (buckets[d.db].why[d.sl] || 0) + 1;
+                total++;
+            }
+            const el = document.getElementById('dropOff');
+            const empty = document.getElementById('dropEmpty');
+            document.getElementById('deadCount').textContent = total ? `${total} dead in range` : '';
+            if (!total) { el.innerHTML = ''; empty.style.display = 'block'; return; }
+            empty.style.display = 'none';
+            const order = ['Outreach', 'Discovery call', 'One pager', 'Evaluation', 'Sample', 'Negotiation', 'Migration'];
+            const max = Math.max(...Object.values(buckets).map(b => b.n));
+            el.innerHTML = order.filter(k => buckets[k]).map(k => {
+                const b = buckets[k];
+                const why = Object.entries(b.why).sort((x, y) => y[1] - x[1])
+                    .map(([s, n]) => `${escapeHtml(s.split('/').slice(-1)[0])} ${n}`).join(' · ');
+                return `<div class="funnel-row">
+        <div class="funnel-top"><span>Died at ${k} <span class="muted" style="margin-left:6px;">${why}</span></span><b>${b.n}</b></div>
+        <div class="funnel-track"><div class="funnel-fill" style="width:${Math.round((b.n / max) * 100)}%;background:#C0453A"></div></div>
+      </div>`;
+            }).join('');
+        }
+
+        /* ---------- hot pipeline ---------- */
+        function renderHot() {
+            const active = rows.filter(d => {
+                if (d.dead || d.won) return false;
+                if (currentOwner && d.o !== currentOwner) return false;
+                return d.r >= 5;   // past Replied — matches is_hot() in the builder
+            }).map(d => {
+                const days = Object.values(d.m).flat().map(e => e[0]).filter(Boolean).sort();
+                return { ...d, last: days.length ? days[days.length - 1] : d.c };
+            }).sort((a, b) => (b.last || '').localeCompare(a.last || '') || b.r - a.r).slice(0, 25);
+
+            document.getElementById('hotCount').textContent = `${active.length} active`;
+            const body = document.getElementById('hotBody');
+            const empty = document.getElementById('hotEmpty');
+            if (!active.length) { body.innerHTML = ''; empty.style.display = 'block'; return; }
+            empty.style.display = 'none';
+            body.innerHTML = active.map(d => {
+                const late = d.r >= 15;
+                const bg = late ? 'var(--purple-tint)' : 'var(--blue-tint)';
+                const fg = late ? 'var(--purple)' : 'var(--blue)';
+                const val = d.cost ? fmtUSD(d.cost) : (d.dvr ? escapeHtml(d.dvr) : '—');
+                return `<tr>
+        <td>${escapeHtml(d.nm)}</td>
+        <td><span class="stage-chip" style="background:${bg};color:${fg}">${escapeHtml(d.sl)}</span></td>
+        <td class="muted">${escapeHtml(OWNERS[d.o] || '—')}</td>
+        <td class="muted">${val}</td>
+        <td class="muted">${fmtDay(d.last)}</td>
+      </tr>`;
+            }).join('');
+        }
+
+        /* ---------- orchestration ---------- */
+        function renderAll() {
+            renderKpiRow('kpiInput', INPUT_KPI, INPUT_STAGES);
+            renderFunnel('inputFunnel', INPUT_STAGES);
+            renderChannelGrouped();
+            renderVolumeChart();
+            renderShowRate();
+
+            renderKpiRow('kpiMaterials', MATERIAL_KPI, MATERIAL_STAGES);
+            renderFunnel('materialsFunnel', MATERIAL_STAGES);
+            renderQuality();
+
+            renderKpiRow('kpiCommercial', COMMERCIAL_KPI, COMMERCIAL_STAGES);
+            renderFunnel('commercialFunnel', COMMERCIAL_STAGES);
+            renderValueWon();
+
+            renderDropOff();
+            renderHot();
+        }
+
+        async function load() {
+            try {
+                // Cache-busted: Pages serves the JSON with a long max-age and a stale board that looks
+                // fresh is worse than one that fails to load.
+                const res = await fetch('ops_dashboard_data.json?t=' + Date.now());
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                DATA = await res.json();
+            } catch (e) {
+                document.getElementById('genStamp').textContent = 'Could not load data — the last build may have failed.';
+                console.error(e);
+                return;
+            }
+            rows = DATA.rows || [];
+            (DATA.team || []).forEach(([id, name]) => { OWNERS[id] = name; });
+            const sel = document.getElementById('ownerSelect');
+            sel.innerHTML = '<option value="">Everyone</option>' +
+                (DATA.team || []).map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join('');
+            document.getElementById('genStamp').textContent = 'Updated ' + (DATA.generated || '—');
+            document.getElementById('dealCount').textContent = rows.length + ' deals';
+            renderAll();
+        }
+
+        document.getElementById('rangeSeg').addEventListener('click', e => {
+            const b = e.target.closest('button'); if (!b) return;
+            currentPreset = b.dataset.r;
+            [...e.currentTarget.querySelectorAll('button')].forEach(x => x.classList.toggle('active', x === b));
+            document.getElementById('customRange').classList.toggle('show', currentPreset === 'custom');
+            if (currentPreset === 'custom') {
+                const f = document.getElementById('fromDate'), t = document.getElementById('toDate');
+                if (!f.value) f.value = shiftDay(istToday(), -29);
+                if (!t.value) t.value = istToday();
+            }
+            renderAll();
+        });
+        ['fromDate', 'toDate'].forEach(id =>
+            document.getElementById(id).addEventListener('change', () => { if (currentPreset === 'custom') renderAll(); }));
+        document.getElementById('ownerSelect').addEventListener('change', e => {
+            currentOwner = e.target.value; renderAll();
+        });
+
+        load();
+
+    </script>
+</body>
+
+</html>

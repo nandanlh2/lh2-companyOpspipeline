@@ -8,6 +8,9 @@ org design) from wound-down Indian companies. HubSpot is the source of truth.
 - Pipeline + property contract: `docs/OPSDATA_PIPELINE.md`
 - Sync scripts: `opsdata/pipeline_sync.py`, `opsdata/properties_sync.py`
   — dry-run by default, `--apply` to write, audit JSON in `audit/` (gitignored)
+- Dashboard: `dashboard/` — read-only board over the pipeline, built from live
+  HubSpot and deployed to GitHub Pages. What every number means:
+  `docs/OPS_DASHBOARD_METRIC_SPEC.md`
 
 Secrets: `HUBSPOT_API_KEY` in `.env` (gitignored — never commit it). Scripts
 read `.env` directly; no terminal env injection needed.
