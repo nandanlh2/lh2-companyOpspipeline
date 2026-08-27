@@ -4,14 +4,20 @@
 Portal `246897735` (the build portal — NOT the main LH2 portal `246754894` that context.md
 describes). Pipeline "Company Ops Data".
 
-Every metric is a count of TIMES A DEAL ENTERED a qualifying stage, on the IST day it entered,
-read from each deal's stage-change history. Not "deals currently at or past stage X": a deal
-that entered `Replied` in week 1 and `Discovery Call` in week 2 contributes to a different
-week for each, which is the whole point of a WTD/Today view.
+Each row carries BOTH readings of the pipeline, because the board needs both:
 
-Activity metrics count only human moves (`sourceType == "CRM_UI"`). Procurement facts
-(Closed/Won, Data Migration Done) ignore sourceType — a dataset we received is ours whether a
-person clicked the stage or the OutFlo sync set it.
+  * `occ` — the metric keys the deal's CURRENT stage satisfies. Summing these across rows
+    reproduces the HubSpot board's column counts exactly. This is what the funnels show.
+  * `m`   — per metric, the list of [IST day, actor] pairs for every time the deal ENTERED a
+    qualifying stage. Distinct rows with an event give "ever reached"; the raw event count
+    gives the weekly trend series.
+
+EVERY source counts. An earlier version kept only `sourceType == "CRM_UI"` for activity
+metrics, to stop the 10:30 OutFlo sync looking like a record outreach day. Measured cost of
+that rule: `Cold LinkedIn Sent` is 5 CRM_UI moves against 17 INTEGRATION, `Email Campaign
+Sent` 0 against 7, `Replied` 6 against 28 — so the filter discarded the entire top of the
+pipeline and the board read 5 where HubSpot read 879. A move the OutFlo sync made is still a
+move that happened.
 
 Two metrics have no stage and come from notes; see ops_note_rules.py for why.
 
@@ -123,35 +129,30 @@ METRICS = {
     "outreach":          {"Cold LinkedIn Sent", "Email Campaign Sent"},
     "outreachLi":        {"Cold LinkedIn Sent"},
     "outreachEmail":     {"Email Campaign Sent"},
-    "liConnected":       {"LinkedIn Connected"},
-    "outreachFollowUp":  {"LinkedIn Follow-Up", "Email Follow-Up"},
-    "outreachReplied":   {"Replied"},
-    "ghostFollowUp":     {"Ghost Follow-Up"},
+    # Ghost Follow-Up counts as a reply. A deal only reaches it BECAUSE somebody answered and
+    # then went quiet, so splitting the two would report the chase as a different kind of event
+    # from the reply that caused it — and would hide 9 live deals that have plainly replied.
+    "outreachReplied":   {"Replied", "Ghost Follow-Up"},
     "vcSetup":           {"Discovery Call"},
     # vcAttended has no stage of its own and is NOT in this dict — it is derived in
     # derive_attendance() below, because "attended" is the absence of a later no-show.
 
     # --- materials & samples (Outcome Matrix) ---
-    "onePagerRequested": {"One Pager Requested"},
-    "onePagerFollowUp":  {"One Pager Follow-Up"},
     "onePagerSent":      {"One Pager Shared"},
-    "internalEval":      {"Internal Evaluation (Sample)"},
     "samplesRequested":  {"Samples Requested"},
-    "sampleFollowUp":    {"Sample Follow-Up"},
     "samplesReceived":   {"Sample Received + Quality Check"},
 
     # --- commercials & close ---
     "negotiationDone":   {"Commercial Negotiations"},
     "contractSigned":    {"Deal Contract Signed"},
-    "tokenPaid":         {"Token Amount Paid"},
-    "migrationDone":     {"Data Migration Done"},
-    "paymentInitiation": {"Payment Initiation"},
     "dealWon":           {"Closed/Won"},
 }
 
-# Procurement facts about the ASSET, not about who moved the deal — counted regardless of
-# sourceType. Everything else is activity and requires a human CRM_UI move.
-ASSET_METRICS = {"dealWon", "migrationDone"}
+# Stages the pipeline HAS but the board deliberately does not chart — LinkedIn Connected,
+# the follow-up loops, One Pager Requested, Internal Evaluation, Token/Migration/Payment.
+# A deal sitting at one of them gets an empty `occ` and appears in no funnel row. That is the
+# agreed shape (resources/lh2-pipeline-overview.html), not an oversight: they still rank the
+# Hot Pipeline through _SEQ below.
 
 # Stage renames are history. `pipeline_v3_update.py` renamed Message Back -> LinkedIn Follow-Up
 # and One Pager + Deck Shared -> One Pager Shared; those PATCHes preserved stage ids, but the
@@ -176,7 +177,8 @@ _SEQ = ["Cold LinkedIn Sent", "LinkedIn Connected", "LinkedIn Follow-Up",
 
 # A dead stage is not "off the end of the funnel" — it marks the point the deal REACHED, so
 # Dead/Sample/Bad Quality means it got a sample in hand. Without this every dead deal sorts
-# last and the drop-off panel cannot say where the funnel actually leaks.
+# last and the Hot Pipeline cannot tell a lead that died cold from one that died holding a
+# sample.
 _DEAD_SEQ = {
     "Dead/Cold/Not Interested": 5,
     "Dead/Cold/No Reply": 2,
@@ -189,22 +191,6 @@ _DEAD_SEQ = {
     "Dead/Negotiations/Pricing": 15,
     "Dead/Negotiations/Contractual": 15,
     "Dead/Migration/Failed": 18,
-}
-
-# Where the funnel leaked, for the drop-off panel. The middle segment of the stage name IS the
-# answer — no separate lost-reason property exists or should exist.
-DEAD_BUCKET = {
-    "Dead/Cold/Not Interested": "Outreach",
-    "Dead/Cold/No Reply": "Outreach",
-    "Dead/Interested/No Show": "Discovery call",
-    "Dead/Discovery Call/Privacy Concerns": "Discovery call",
-    "Dead/One Pager Not Shared": "One pager",
-    "Dead/Sample Not Collected/Wrong Fit-Rejected": "Evaluation",
-    "Dead/Sample Not Received/Company No Show": "Sample",
-    "Dead/Sample/Bad Quality": "Sample",
-    "Dead/Negotiations/Pricing": "Negotiation",
-    "Dead/Negotiations/Contractual": "Negotiation",
-    "Dead/Migration/Failed": "Migration",
 }
 
 # The one stage that turns a booked call into a no-show. Named once here; derive_attendance
@@ -285,15 +271,11 @@ def actor_owner(uid):
 
 
 PROPS = ["hubspot_owner_id", "pipeline", "dealstage", "createdate", "dealname",
-         "lead_source", "email_campaign", "lh2_domain",
+         "lead_source",
          # Price lives in `cost`, NOT `amount` — the flowchart's Payment Initiation gate is
          # literally "Deal Cost ($)" and this flow never writes `amount`. Keyed `cost` all the
          # way to the front end so nothing downstream can quietly read the wrong field.
-         "cost", "token_amount", "token_paid_date", "deal_value_range",
-         "sample_quality_score", "sample_format", "internal_eval_result",
-         "ops_data_types", "systems_of_record",
-         "migration_record_count", "number_of_datasets", "migration_volume",
-         "data_delivery_timeline"]
+         "cost", "deal_value_range"]
 
 
 def num(p, k):
@@ -326,16 +308,14 @@ def deal_row(deal):
         "sl": lab,
         "won": st in WON_IDS,
         "dead": st in DEAD,
-        "db": DEAD_BUCKET.get(lab, "") if st in DEAD else "",
         "src": p.get("lead_source") or "",
         "dvr": p.get("deal_value_range") or "",
         "cost": num(p, "cost"),
-        "tok": num(p, "token_amount"),
-        "sq": num(p, "sample_quality_score"),
-        "sf": p.get("sample_format") or "",
-        "ier": p.get("internal_eval_result") or "",
-        "recs": num(p, "migration_record_count"),
-        "ds": num(p, "number_of_datasets"),
+        # WHICH metric keys the deal's CURRENT stage satisfies. Summed across rows this
+        # reproduces the HubSpot board's column counts exactly, which is what the funnels show.
+        # Derived from METRICS through the same metrics_for() the history path uses, so a stage
+        # name is never spelled out twice and the board cannot drift from the definition.
+        "occ": metrics_for(lab),
         # per-metric list of [IST day, actor owner id] on which this deal ENTERED a qualifying
         # stage. A LIST, not a single date: under the follow-up loops a deal legitimately
         # re-enters a stage (Replied, went quiet, Ghost Follow-Up, Replied again) and both are
@@ -348,11 +328,9 @@ def deal_row(deal):
 def apply_history(d, hist):
     """Fill a row's m / asg from propertiesWithHistory. Mutates and returns `d`.
 
-    Deriving these from history rather than from a webhook payload is deliberate. A webhook
-    carries `changeSource: "CRM"` where history carries `sourceType: "CRM_UI"` — different
-    vocabularies for the same intent, and trusting the payload would be a SECOND definition of
-    "a human did this". Re-reading history also makes this idempotent, so a duplicated or
-    out-of-order delivery cannot double-count.
+    Deriving these from history rather than from a webhook payload is deliberate: re-reading
+    history makes this idempotent, so a duplicated or out-of-order delivery cannot double-count,
+    and a correction made in HubSpot today fixes last week's number on the next build.
     """
     for e in hist.get("dealstage", []):
         if not e.get("timestamp"):
@@ -363,14 +341,15 @@ def apply_history(d, hist):
         day = ist_day(e["timestamp"])
         keys = metrics_for(lab)
 
-        # Asset facts ignore sourceType; activity requires a human. The OutFlo sync promotes
-        # deals up the LinkedIn ladder every morning and the Gmail import promotes the email
-        # branch — counting those as CRM activity would render the daily sync as the biggest
-        # outreach day the company has ever had.
+        # EVERY sourceType counts. The OutFlo sync and the Gmail import make most of the moves
+        # on the LinkedIn and email branches, and filtering them out (as this once did, keeping
+        # only CRM_UI) threw away the entire top of the pipeline: measured 5 CRM_UI against 17
+        # INTEGRATION on Cold LinkedIn Sent, 0 against 7 on Email Campaign Sent, 6 against 28 on
+        # Replied. `updatedByUserId` is absent on an integration move, so the actor is simply
+        # blank there — a real gap, not a reason to drop the event.
+        actor = actor_owner(e.get("updatedByUserId"))
         for k in keys:
-            if k not in ASSET_METRICS and e.get("sourceType") != "CRM_UI":
-                continue
-            ev = [day, actor_owner(e.get("updatedByUserId")) if k not in ASSET_METRICS else ""]
+            ev = [day, actor]
             if ev not in d["m"][k]:   # same stage, same person, same day is ONE event
                 d["m"][k].append(ev)
 
