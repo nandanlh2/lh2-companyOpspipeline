@@ -194,6 +194,10 @@
             grid-template-columns: repeat(3, 1fr);
         }
 
+        .kpi-row.cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
         .kpi {
             border-radius: 14px;
             padding: 16px 16px 15px;
@@ -601,7 +605,7 @@
                     <div class="grp-legend" style="margin-top:12px;">
                         <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>LinkedIn
                         </div>
-                        <div class="legend-item"><span class="legend-dot" style="background:#AFC9FA"></span>Email</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#AFC9FA"></span>Cold Call</div>
                     </div>
                 </div>
                 <div class="panel num-trend">
@@ -616,16 +620,16 @@
             </div>
         </div>
 
-        <!-- SECTION 2: MATERIALS & SAMPLES -->
+        <!-- SECTION 2: MATERIALS (v4: sample-evaluation stages removed, see docs/OPSDATA_PIPELINE.md) -->
         <div class="section">
             <div class="section-top">
-                <h2>Materials &amp; Samples</h2>
+                <h2>Materials</h2>
                 <span class="tag">Outcome Matrix</span>
             </div>
-            <div class="kpi-row" id="kpiMaterials"></div>
+            <div class="kpi-row cols-2" id="kpiMaterials"></div>
             <div class="panel">
                 <div class="panel-head">
-                    <h3>Materials &amp; sample funnel</h3><span class="chip">Funnel</span>
+                    <h3>One-Pager funnel</h3><span class="chip">Funnel</span>
                 </div>
                 <div id="materialsFunnel"></div>
             </div>
@@ -637,7 +641,7 @@
                 <h2>Commercials &amp; Close</h2>
                 <span class="tag">Outcome Matrix</span>
             </div>
-            <div class="kpi-row cols-3" id="kpiCommercial"></div>
+            <div class="kpi-row cols-2" id="kpiCommercial"></div>
             <div class="chart-grid">
                 <div class="panel">
                     <div class="panel-head">
@@ -704,24 +708,26 @@
         // stage behind it and therefore no snapshot: `note` is read off note text, `derived` is
         // computed (attendance is the absence of a later no-show).
         const INPUT_STAGES = [
-            { key: 'outreach', label: 'Cold Outreach — LinkedIn/Email', color: '#3E7BFA' },
+            { key: 'outreach', label: 'Cold Outreach — LinkedIn/Cold Call', color: '#3E7BFA' },
             { key: 'outreachReplied', label: 'Cold Outreach Replied', color: '#5B93FB' },
             { key: 'interestSent', label: '1st Interest Email Sent', color: '#2BAF87', derived: 'note' },
             { key: 'vcSetup', label: 'Discovery Call Set Up', color: '#E2963C' },
             { key: 'vcAttended', label: 'Discovery Call Attended', color: '#C98A2E', derived: 'derived' },
         ];
-        // One list, split by index: materials is [0..3], commercials is [4..6].
+        // One list, split by index: materials is [0..1], commercials is [2..3].
+        // v4 (2026-09-08): collapsed samplesRequested/samplesReceived/negotiationDone into
+        // loiSigned (the sample-evaluation + negotiation stretch no longer exists as stages),
+        // and dropped the separate dealWon row — Contract Signed IS the closed-won stage now,
+        // so a second row would double-count the same event. `dealWon` stays a live METRICS
+        // key (see build_ops_dashboard.py) for the Value Won tile, it just isn't in this list.
         const OUTCOME_STAGES = [
             { key: 'onePagerSent', label: 'One-Pager Sent', color: '#2BAF87' },
             { key: 'onePagerReceived', label: 'One-Pager Received', color: '#39C39A', derived: 'note' },
-            { key: 'samplesRequested', label: 'Samples Requested', color: '#E2963C' },
-            { key: 'samplesReceived', label: 'Samples Received', color: '#8FAE3D' },
-            { key: 'negotiationDone', label: 'Negotiation Calls Done', color: '#8C7AE6' },
-            { key: 'contractSigned', label: 'Contract Signed', color: '#6C5CE7' },
-            { key: 'dealWon', label: 'Deal Won / Closed', color: '#1F9D6B' },
+            { key: 'loiSigned', label: 'LOI Signed', color: '#8C7AE6' },
+            { key: 'contractSigned', label: 'Contract Signed (Won)', color: '#6C5CE7' },
         ];
-        const MATERIAL_STAGES = OUTCOME_STAGES.slice(0, 4);
-        const COMMERCIAL_STAGES = OUTCOME_STAGES.slice(4, 7);
+        const MATERIAL_STAGES = OUTCOME_STAGES.slice(0, 2);
+        const COMMERCIAL_STAGES = OUTCOME_STAGES.slice(2, 4);
 
         const INPUT_KPI = ['outreach', 'outreachReplied', 'vcSetup', 'vcAttended'];
         const MATERIAL_KPI = MATERIAL_STAGES.map(s => s.key);
@@ -897,12 +903,12 @@
             });
             document.getElementById(containerId).replaceChildren(...tiles);
         }
-        // The LinkedIn/Email breakdown under the first Input tile. The split falls out of WHICH entry
-        // stage the deal is sitting at — there is no channel property to read.
+        // The LinkedIn/Cold Call breakdown under the first Input tile. The split falls out of WHICH
+        // entry stage the deal is sitting at — there is no channel property to read.
         function channelSplit(from, to) {
             const split = el('div', 'split');
             [['LinkedIn', countEver('outreachLi', from, to), 'var(--blue)'],
-            ['Email', countEver('outreachEmail', from, to), '#2BAF87']].forEach(([name, n, color]) => {
+            ['Cold Call', countEver('outreachColdCall', from, to), '#2BAF87']].forEach(([name, n, color]) => {
                 const item = el('div', 'split-item');
                 item.append(
                     styled('span', 'split-dot', { background: color }),
@@ -951,7 +957,7 @@
          */
         function renderChannelGrouped() {
             const { from, to } = getRange();
-            const cfg = [['LinkedIn', 'outreachLi', 'var(--blue)'], ['Email', 'outreachEmail', '#2BAF87']];
+            const cfg = [['LinkedIn', 'outreachLi', 'var(--blue)'], ['Cold Call', 'outreachColdCall', '#2BAF87']];
             const out = cfg.map(([name, sentKey, color]) => {
                 let sent = 0, replied = 0;
                 for (const d of rows) {
@@ -972,7 +978,7 @@
             });
             document.getElementById('channelGrouped').replaceChildren(...out);
 
-            const legend = [['LinkedIn reply rate', 'var(--blue)'], ['Email reply rate', '#2BAF87']]
+            const legend = [['LinkedIn reply rate', 'var(--blue)'], ['Cold Call reply rate', '#2BAF87']]
                 .map(([text, color]) => {
                     const item = el('div', 'legend-item');
                     item.append(styled('span', 'legend-dot', { background: color }),
@@ -1000,7 +1006,7 @@
         function renderVolumeChart() {
             const data = weekBuckets(8).map(w => ({
                 li: countEvents('outreachLi', w.start, w.end),
-                em: countEvents('outreachEmail', w.start, w.end),
+                em: countEvents('outreachColdCall', w.start, w.end),
                 label: fmtDay(w.start)
             }));
             const max = Math.max(1, ...data.map(d => d.li + d.em));
@@ -1010,7 +1016,7 @@
                 item.append(styled('div', null, { height: hEm + 'px', background: '#AFC9FA' }),
                     styled('div', null, { height: hLi + 'px', background: 'var(--blue)' }));
                 const wrap = el('div', 'col-wrap');
-                wrap.title = `${d.label}: ${d.li} LinkedIn, ${d.em} email`;
+                wrap.title = `${d.label}: ${d.li} LinkedIn, ${d.em} cold call`;
                 wrap.append(item, el('div', 'col-week', d.label));
                 return wrap;
             });
@@ -1068,10 +1074,15 @@
         /* ---------- hot pipeline ----------
          * Live, and past first reply — the same rule as is_hot() in the builder. A snapshot by nature,
          * so the range picker does not apply: "what is warm right now" has no window.
+         *
+         * The threshold below MUST match _SEQ.index("Replied") in build_ops_dashboard.py — it is
+         * 3 as of the v4 restructure (2026-09-08), was 5 pre-v4. This is a literal, not derived
+         * from _SEQ (the front end has no copy of it), so a future _SEQ reorder must update this by
+         * hand or Hot Pipeline silently drifts from is_hot()'s definition.
          */
         const HOT_LIMIT = 25;
         function renderHot() {
-            const active = rows.filter(d => !d.dead && !d.won && d.r >= 5).map(d => {
+            const active = rows.filter(d => !d.dead && !d.won && d.r >= 3).map(d => {
                 const days = Object.values(d.m).flat().map(e => e[0]).filter(Boolean).sort();
                 return { d, last: days.length ? days[days.length - 1] : d.c };
             }).sort((a, b) => (b.last || '').localeCompare(a.last || '') || b.d.r - a.d.r);
@@ -1092,7 +1103,10 @@
             }
             empty.style.display = 'none';
             list.replaceChildren(...shown.map(({ d }) => {
-                const late = d.r >= 15;     // Commercial Negotiations or deeper
+                // Must match _SEQ.index("LOI signed") in build_ops_dashboard.py — 11 as of the v4
+                // restructure (2026-09-08), was 15 ("Commercial Negotiations or deeper") pre-v4.
+                // Same caveat as HOT_LIMIT's threshold above: this is a literal, not derived.
+                const late = d.r >= 11;
                 const chip = styled('span', 'stage-chip', {
                     background: late ? 'var(--purple-tint)' : 'var(--blue-tint)',
                     color: late ? 'var(--purple)' : 'var(--blue)'

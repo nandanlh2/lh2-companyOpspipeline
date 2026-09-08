@@ -10,9 +10,12 @@ __pycache__/
 
 # Audit dumps and scheduled-run logs are local run artifacts, keep them out of
 # the repo. The .log line matters: the runbook's cron line redirects into
-# audit/cron.log, which is not a .json and would otherwise be committed.
+# audit/cron.log, which is not a .json and would otherwise be committed. The .csv line
+# matters just as much: deals_v4_migrate.py's human-reviewable audit (deal names,
+# lead_source) is real business data and must never land in git history.
 audit/*.json
 audit/*.log
+audit/*.csv
 
 # Dashboard build output. Regenerated from live HubSpot on every run, so a committed copy is
 # only ever a stale snapshot that looks authoritative in a diff. CI builds it fresh and uploads

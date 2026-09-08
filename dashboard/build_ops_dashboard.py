@@ -124,79 +124,86 @@ def call(path, method="GET", payload=None):
 # ---------------------------------------------------------------------------------------
 METRICS = {
     # --- outreach & response (Input Matrix) ---
-    # Both branch entries are one metric: "we put outreach out". The LinkedIn/Email split is
-    # derived from WHICH stage was entered, so no channel field is needed or stored.
-    "outreach":          {"Cold LinkedIn Sent", "Email Campaign Sent"},
-    "outreachLi":        {"Cold LinkedIn Sent"},
-    "outreachEmail":     {"Email Campaign Sent"},
-    # Ghost Follow-Up counts as a reply. A deal only reaches it BECAUSE somebody answered and
-    # then went quiet, so splitting the two would report the chase as a different kind of event
-    # from the reply that caused it — and would hide 9 live deals that have plainly replied.
-    "outreachReplied":   {"Replied", "Ghost Follow-Up"},
-    "vcSetup":           {"Discovery Call"},
+    # v4 (2026-09-08): the email branch is retired (see docs/OPSDATA_PIPELINE.md), so the
+    # second entry channel is now cold-calling, not email. Both branch entries are one
+    # metric: "we put outreach out". The channel split is derived from WHICH stage was
+    # entered, so no channel field is needed or stored.
+    "outreach":          {"LinkedIn sent", "Cold called assigned"},
+    "outreachLi":        {"LinkedIn sent"},
+    "outreachColdCall":  {"Cold called assigned"},
+    # '1st interest follow up' (renamed from Ghost Follow-Up) counts as a reply. A deal
+    # only reaches it BECAUSE somebody answered and then went quiet, so splitting the two
+    # would report the chase as a different kind of event from the reply that caused it.
+    "outreachReplied":   {"Replied", "1st interest follow up"},
+    "vcSetup":           {"Discovery call"},
     # vcAttended has no stage of its own and is NOT in this dict — it is derived in
     # derive_attendance() below, because "attended" is the absence of a later no-show.
 
-    # --- materials & samples (Outcome Matrix) ---
-    "onePagerSent":      {"One Pager Shared"},
-    "samplesRequested":  {"Samples Requested"},
-    "samplesReceived":   {"Sample Received + Quality Check"},
+    # --- materials (Outcome Matrix) ---
+    "onePagerSent":      {"One pager received"},
 
     # --- commercials & close ---
-    "negotiationDone":   {"Commercial Negotiations"},
-    "contractSigned":    {"Deal Contract Signed"},
-    "dealWon":           {"Closed/Won"},
+    # v4 collapses the old sample-evaluation + negotiation stretch into one stage, LOI
+    # signed, and Contract signed is now the closed-won stage itself (no separate
+    # Token/Migration/Payment/Closed-Won tail exists anymore).
+    "loiSigned":         {"LOI signed"},
+    "contractSigned":    {"Contract signed"},
+    "dealWon":           {"Contract signed"},
 }
 
-# Stages the pipeline HAS but the board deliberately does not chart — LinkedIn Connected,
-# the follow-up loops, One Pager Requested, Internal Evaluation, Token/Migration/Payment.
+# Stages the pipeline HAS but the board deliberately does not chart — LinkedIn connected,
+# the follow-up loops, One pager requested, Call rescheduled.
 # A deal sitting at one of them gets an empty `occ` and appears in no funnel row. That is the
 # agreed shape (resources/lh2-pipeline-overview.html), not an oversight: they still rank the
 # Hot Pipeline through _SEQ below.
 
-# Stage renames are history. `pipeline_v3_update.py` renamed Message Back -> LinkedIn Follow-Up
-# and One Pager + Deck Shared -> One Pager Shared; those PATCHes preserved stage ids, but the
-# v2 restructure's PUT-based renames did NOT (GMeet Fixed -> Discovery Call got a fresh id), so
-# old labels survive in the history of migrated deals. Map them forward or the series before
-# 2026-08-13 falls off a cliff.
+# Stage renames are history. v4's renames (pipeline_v4_update.py, 2026-09-08 — LinkedIn sent,
+# LinkedIn connected, 1st interest follow up, Discovery call, One pager requested/follow
+# up/received, Contract signed) all went through per-stage PATCH, which preserves the stage
+# id, so no ALIAS entries are needed for them: the live stage already carries the new label
+# and every history entry pointing at that id resolves to it directly. ALIAS exists only for
+# the v2 restructure's PUT-based renames, which did NOT preserve ids (GMeet Fixed -> Discovery
+# Call got a fresh id) — those old labels survive in the history of migrated deals and must be
+# mapped forward by hand or the series before 2026-08-13 falls off a cliff.
 ALIAS = {
-    "Message Back (Email + 2nd Msg)": "LinkedIn Follow-Up",
-    "Message Back": "LinkedIn Follow-Up",
-    "One Pager + Deck Shared": "One Pager Shared",
-    "GMeet Fixed": "Discovery Call",
-    "Cold Lead": "Cold LinkedIn Sent",
+    "Message Back (Email + 2nd Msg)": "1st interest follow up",
+    "Message Back": "1st interest follow up",
+    "One Pager + Deck Shared": "One pager received",
+    "GMeet Fixed": "Discovery call",
+    "Cold Lead": "LinkedIn sent",
 }
 
 # Funnel depth. How far a deal got, used to rank the Hot Pipeline and to decide what is "hot".
-_SEQ = ["Cold LinkedIn Sent", "LinkedIn Connected", "LinkedIn Follow-Up",
-        "Email Campaign Sent", "Email Follow-Up", "Replied", "Ghost Follow-Up",
-        "Discovery Call", "One Pager Requested", "One Pager Follow-Up", "One Pager Shared",
-        "Internal Evaluation (Sample)", "Samples Requested", "Sample Follow-Up",
-        "Sample Received + Quality Check", "Commercial Negotiations", "Deal Contract Signed",
-        "Token Amount Paid", "Data Migration Done", "Payment Initiation", "Closed/Won"]
+# v4 (2026-09-08): dropped the email branch and the whole sample-evaluation/negotiation/
+# token/migration/payment tail; Contract signed is now the closed-won stage itself. See
+# docs/OPSDATA_PIPELINE.md "v4 restructure".
+_SEQ = ["LinkedIn sent", "Cold called assigned", "LinkedIn connected", "Replied",
+        "1st interest sent", "1st interest follow up", "Discovery call", "Call rescheduled",
+        "One pager requested", "One pager follow up", "One pager received", "LOI signed",
+        "Contract signed"]
 
 # A dead stage is not "off the end of the funnel" — it marks the point the deal REACHED, so
-# Dead/Sample/Bad Quality means it got a sample in hand. Without this every dead deal sorts
-# last and the Hot Pipeline cannot tell a lead that died cold from one that died holding a
-# sample.
+# Dead: One Pager / Less Data means it got a one-pager response in hand. Without this every
+# dead deal sorts last and the Hot Pipeline cannot tell a lead that died cold from one that
+# died holding real progress.
 _DEAD_SEQ = {
-    "Dead/Cold/Not Interested": 5,
-    "Dead/Cold/No Reply": 2,
-    "Dead/Interested/No Show": 7,
-    "Dead/Discovery Call/Privacy Concerns": 7,
-    "Dead/One Pager Not Shared": 9,
-    "Dead/Sample Not Collected/Wrong Fit-Rejected": 11,
-    "Dead/Sample Not Received/Company No Show": 13,
-    "Dead/Sample/Bad Quality": 14,
-    "Dead/Negotiations/Pricing": 15,
-    "Dead/Negotiations/Contractual": 15,
-    "Dead/Migration/Failed": 18,
+    "Dead: Replied / Not Interested": 3,
+    "Dead: 1st Interest": 5,
+    "Dead: Discovery Call / No Show": 6,
+    "Dead: Discovery Call / Rejected by LH2": 6,
+    "Dead: Discovery Call / Not Interested": 6,
+    "Dead: One Pager / Not Received": 9,
+    "Dead: One Pager / Less Data": 10,
+    "Dead: LOI / Terms Not Agreed": 11,
+    # The email branch closed out at 0 -- died at outreach-sent depth, never replied,
+    # same as where 'LinkedIn sent'/'Cold called assigned' sit in _SEQ.
+    "Dead: Email Campaign / Branch Retired": 0,
 }
 
 # The one stage that turns a booked call into a no-show. Named once here; derive_attendance
 # reads it rather than matching on a substring, so renaming the stage breaks loudly in the
 # unknown-label report instead of silently zeroing the show rate.
-NO_SHOW_STAGE = "Dead/Interested/No Show"
+NO_SHOW_STAGE = "Dead: Discovery Call / No Show"
 
 STAGE_LABEL = {}
 WON_IDS, ENTRY_IDS, DEAD = set(), set(), set()
@@ -226,9 +233,9 @@ def load_stage_index():
         meta = st.get("metadata") or {}
         if str(meta.get("isClosed")).lower() == "true":
             DEAD.add(sid)
-        if lab == "Closed/Won":
+        if lab == "Contract signed":  # v4: Contract signed IS the closed-won stage now
             WON_IDS.add(sid); DEAD.discard(sid)
-        if lab in ("Cold LinkedIn Sent", "Email Campaign Sent"):
+        if lab in ("LinkedIn sent", "Cold called assigned"):
             ENTRY_IDS.add(sid)
         if lab in _SEQ:
             ORDER[sid] = _SEQ.index(lab)
@@ -272,9 +279,10 @@ def actor_owner(uid):
 
 PROPS = ["hubspot_owner_id", "pipeline", "dealstage", "createdate", "dealname",
          "lead_source",
-         # Price lives in `cost`, NOT `amount` — the flowchart's Payment Initiation gate is
-         # literally "Deal Cost ($)" and this flow never writes `amount`. Keyed `cost` all the
-         # way to the front end so nothing downstream can quietly read the wrong field.
+         # Price lives in `cost`, NOT `amount` — this flow never writes `amount`. v4 writes
+         # `cost` at Contract signed (there is no separate Payment Initiation stage anymore).
+         # Keyed `cost` all the way to the front end so nothing downstream can quietly read
+         # the wrong field.
          "cost", "deal_value_range"]
 
 
@@ -372,19 +380,20 @@ def apply_history(d, hist):
 
 
 def derive_attendance(d):
-    """vcAttended: a Discovery Call that did not later turn into a no-show.
+    """vcAttended: a Discovery call that did not later turn into a no-show.
 
     "Attended" is deliberately NOT a stage — per the pipeline's own design rule, a stage is a
-    state the deal is IN, and "they showed up" is not one; the deal is at Discovery Call either
-    way until an outcome moves it. So attendance is the ABSENCE of `Dead/Interested/No Show`.
+    state the deal is IN, and "they showed up" is not one; the deal is at Discovery call either
+    way until an outcome moves it. So attendance is the ABSENCE of `Dead: Discovery Call / No
+    Show`.
 
     Credited on the day of the CALL, not the day the no-show was recorded, so a call booked and
     attended on Monday counts to Monday even if somebody tidied the stage on Thursday. That
     also means the show rate for a very recent day can only fall, never rise, as no-shows get
     marked — which is the honest direction for it to move.
 
-    `Dead/Discovery Call/Privacy Concerns` is NOT a no-show on purpose: they turned up and then
-    balked, so the call was attended and the deal died for a different reason.
+    `Dead: Discovery Call / Rejected by LH2` and `Dead: Discovery Call / Not Interested` are NOT
+    no-shows on purpose: the call happened either way, and the deal died for a different reason.
     """
     d["m"]["vcAttended"] = [] if d.get("ns") else list(d["m"]["vcSetup"])
     return d
