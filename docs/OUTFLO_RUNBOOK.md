@@ -43,16 +43,17 @@ OUTFLO_API_KEY=...              # from reach.outflo.io/integrations
    **pause campaigns, never delete them**: a deleted campaign's leads vanish
    from the API and can never be imported (we lost ~12 UAE leads this way).
 
-2. **Bucket mapping** (OutFlo → HubSpot stage):
+2. **Bucket mapping** (OutFlo → HubSpot stage; stage names as of the v4 restructure,
+   `docs/OPSDATA_PIPELINE.md`):
    | OutFlo state | Deal stage |
    |---|---|
-   | Request Sent / Previously Request Sent | `Cold LinkedIn Sent` |
-   | Connected / Previously Connected | `LinkedIn Connected` |
+   | Request Sent / Previously Request Sent | `LinkedIn sent` |
+   | Connected / Previously Connected | `LinkedIn connected` |
    | Reply Status = Replied | `Replied` |
 
    "Checking" and "Failed" leads are not imported. Stage moves only **up**
-   that ladder (`Cold LinkedIn Sent → LinkedIn Connected → Replied`). A deal
-   at any other stage (Ghost Follow-Up, Discovery Call, a Dead/* stage…) is a
+   that ladder (`LinkedIn sent → LinkedIn connected → Replied`). A deal
+   at any other stage (1st interest follow up, Discovery call, a Dead:* stage…) is a
    human's decision and is always skipped.
 
 3. **One deal per company.** Multiple founders at one company become several

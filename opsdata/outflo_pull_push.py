@@ -6,8 +6,8 @@ Dry-run by default: prints the full plan table and writes nothing. --apply to pu
 Shape of the push:
 - one DEAL per company (deal name = company, never the person), in the
   'Company Ops Data' pipeline; one CONTACT per person, associated to the deal
-- Connected -> stage 'Cold LinkedIn Sent'; Replied -> stage 'Replied'
-  (reply beats connect when a company has both)
+- Request Sent -> stage 'LinkedIn sent'; Connected -> stage 'LinkedIn connected';
+  Replied -> stage 'Replied' (reply beats connect beats request-sent when a company has more than one)
 - provenance frozen at import: lead_source, outflo_status, outflo_campaign,
   outflo_lead_id, outflo_assigned_account, outflo_last_action_at
 - all deals and contacts owned by Kartik Pillai (only owner in this portal);
@@ -15,7 +15,7 @@ Shape of the push:
 - replied_at comes from the LinkedIn conversation when the last message is from
   the lead; otherwise falls back to OutFlo's Last Action At
 - idempotent: existing deals (matched by outflo_lead_id, then by company name in
-  this pipeline) are skipped; stage is only ever promoted Cold LinkedIn Sent ->
+  this pipeline) are skipped; stage is only ever promoted LinkedIn sent ->
   Replied, never demoted, and never touched once a human moved the deal further
 - no phone numbers are pushed at all: OutFlo has none, and pushing an unverified
   number would break the no-non-Indian-number rule
@@ -29,8 +29,10 @@ PIPELINE_LABEL = "Company Ops Data"
 LEAD_SOURCE = "Outflo Outreach ( Startups )"
 # 2026-08-13 bucket fix: OutFlo Leads Processed (request sent) -> Cold LinkedIn
 # Sent; Connected -> LinkedIn Connected. Stage only ever climbs this ladder.
-STAGE_PROCESSED = "Cold LinkedIn Sent"
-STAGE_CONNECTED = "LinkedIn Connected"
+# v4 (2026-09-08): stages renamed lowercase ('Cold LinkedIn Sent' -> 'LinkedIn sent',
+# 'LinkedIn Connected' -> 'LinkedIn connected'), same stage ids, same ladder logic.
+STAGE_PROCESSED = "LinkedIn sent"
+STAGE_CONNECTED = "LinkedIn connected"
 STAGE_REPLIED = "Replied"
 RANK = {STAGE_PROCESSED: 0, STAGE_CONNECTED: 1, STAGE_REPLIED: 2}
 

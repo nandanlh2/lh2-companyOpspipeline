@@ -1,4 +1,12 @@
-"""Pull Kartik's cold-email campaign from Gmail, push recipients to HubSpot.
+"""RETIRED in v4 (2026-09-08) — see docs/OPSDATA_PIPELINE.md "Gmail cold-email import".
+
+The v4 SOP flowchart drops the email branch entirely; 'Email Campaign Sent' and 'Email
+Follow-Up' are deleted from the live pipeline (confirmed gone 2026-09-08) — their 124
+deals were closed to 'Dead: Email Campaign / Branch Retired' first (see
+docs/OPSDATA_PIPELINE.md "v4 restructure"). Running this script now will fail with
+INVALID_OPTION on every write. Left in the repo for reference only.
+
+Pull Kartik's cold-email campaign from Gmail, push recipients to HubSpot.
 
 Campaign definition (per the user): a SENT mail whose body contains a Calendly
 link. Subject lines drifted across sends, the Calendly link did not.
@@ -187,6 +195,13 @@ def pull_campaign():
 
 def main():
     global ACCESS
+    if "--i-know-this-is-retired" not in sys.argv:
+        sys.exit("ABORT: this script is RETIRED as of the v4 pipeline restructure — "
+                 "'Email Campaign Sent'/'Email Follow-Up' no longer exist (or are about "
+                 "to be removed) in the live pipeline. See docs/OPSDATA_PIPELINE.md "
+                 "'Gmail cold-email import'. Pass --i-know-this-is-retired to run it "
+                 "anyway (e.g. for a one-off historical reprocessing before the v4 "
+                 "restructure has been applied).")
     apply = "--apply" in sys.argv
     ACCESS = gmail_token()
     recipients, replied, bounced = pull_campaign()

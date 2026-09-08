@@ -32,7 +32,10 @@ CORS. Serve it.
 ## What the numbers mean
 
 The layout follows `../resources/lh2-pipeline-overview.html`: three sections (Outreach & Response,
-Materials & Samples, Commercials & Close) of five, four and three stage rows, plus the Hot Pipeline.
+Materials, Commercials & Close) of five, two and two stage rows, plus the Hot Pipeline. (Pre-v4
+this was five/four/three — the sample-evaluation and negotiation rows collapsed into one `LOI
+Signed` row and the separate `Deal Won` row merged into `Contract Signed` when that stage itself
+became the closed-won stage; see `../docs/OPSDATA_PIPELINE.md` "v4 restructure".)
 
 Every stage row shows **two** figures:
 
@@ -44,9 +47,9 @@ Every stage row shows **two** figures:
 Rows tagged `note` or `derived` — *1st Interest Email Sent*, *One-Pager Received*, *Discovery Call
 Attended* — have no pipeline stage behind them, so they show the ever figure only.
 
-Why both: a snapshot alone hides everything that has moved on (`One Pager Shared` holds 0 deals
-today, but 4 have passed through it), while a rate built on a snapshot shrinks its own denominator
-every time the numerator grows.
+Why both: a snapshot alone hides everything that has moved on (a stage can hold few deals today
+while many more have passed through it on their way further down the funnel), while a rate built
+on a snapshot shrinks its own denominator every time the numerator grows.
 
 **The funnel is not monotonic and should not be forced to be.** `Discovery Call Set Up` can exceed
 `1st Interest Email Sent` because the latter is note-derived and only counts deals somebody wrote a
@@ -61,9 +64,10 @@ the same length.
 The 8-week trend charts deliberately ignore the range picker — a sparkline that collapses to a
 single point when somebody clicks Today is not a trend.
 
-**There is no `sourceType` filter.** Most moves on both entry branches are made by the OutFlo sync
-and the Gmail import, not by hand; filtering to `CRM_UI` (as this once did) threw away the top of
-the pipeline and made the board read 5 where HubSpot read 879. See the metric spec's §1.
+**There is no `sourceType` filter.** Most moves on the LinkedIn branch are made by the OutFlo sync,
+not by hand (the Gmail import made most email-branch moves historically, before that branch was
+retired in v4); filtering to `CRM_UI` (as this once did) threw away the top of the pipeline and
+made the board read 5 where HubSpot read 879. See the metric spec's §1.
 
 **No owner filter.** The builder still records who made each move and still emits `team`, so the
 per-member dropdown can be put back without a data change — the board just does not show one.

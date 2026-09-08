@@ -24,13 +24,13 @@ exactly why this dashboard once disagreed with HubSpot.
 > **The headline is ever-reached: a deal that has moved further down the funnel still counts at
 > every stage it passed through.**
 
-That is what makes a funnel a funnel. `One Pager Shared` holds 0 deals right now, but 4 have been
-through it — under a snapshot that row reads `0` and says "we have never sent a one-pager", which
-is false. Under ever-reached it reads `4`.
+That is what makes a funnel a funnel. `One pager received` might hold few deals right now, but
+many more have been through it — under a snapshot that row reads a small number and says "we have
+barely sent any one-pagers", which is false. Under ever-reached it reads the true total.
 
 **The snapshot has not gone away**, it rides alongside as the muted `N now`. That figure is the
 HubSpot board's column count, so the two can always be reconciled: if the board says
-`Cold LinkedIn Sent 879`, the LinkedIn row says `879 now` whatever range is selected. It ignores
+`LinkedIn sent 879`, the LinkedIn row says `879 now` whatever range is selected. It ignores
 the picker deliberately — "how many are sitting here" is only ever true *now*.
 
 **Why every rate is built on ever-reached.** A deal that replied has left the outreach stage. A
@@ -59,7 +59,8 @@ Consequences worth knowing before someone reports a bug:
 
 There is **no `sourceType` filter.** An earlier version kept only `CRM_UI` moves for "activity"
 metrics, so that the 10:30 OutFlo sync would not look like a record outreach day. Measured cost of
-that rule on the live pipeline:
+that rule on the live pipeline (stage names as they were pre-v4 — `Cold LinkedIn Sent` is now
+`LinkedIn sent`, etc.; see `docs/OPSDATA_PIPELINE.md` "v4 restructure"):
 
 | Stage | `CRM_UI` moves | `INTEGRATION` moves |
 |---|---|---|
@@ -88,77 +89,85 @@ timezone cannot shift a deal across a boundary.
 ## 2. Metrics
 
 Each is a **set of stages**, never a flag or a counter. Membership is explicit rather than a depth
-threshold, because stages at the same depth can mean opposite things — `Dead/Cold/No Reply` and
-`Dead/Cold/Not Interested` are equally deep, but one means nobody ever answered and the other means
-a human replied and said no.
+threshold, because stages at the same depth can mean opposite things.
 
-The board charts **eleven stage-backed metrics and three derived ones**, matching the agreed layout
-in `resources/lh2-pipeline-overview.html`. The keys below are the whole of `METRICS` in
+The board charts **stage-backed and derived metrics** matching the agreed layout in
+`resources/lh2-pipeline-overview.html`. The keys below are the whole of `METRICS` in
 `build_ops_dashboard.py` and the whole of `INPUT_STAGES` / `OUTCOME_STAGES` in `index.html`; the two
 lists must agree, and nothing validates that at runtime.
+
+**v4 restructure (2026-09-08):** the email branch is retired and the pipeline's post-signing tail
+(sample evaluation, negotiation, token payment, migration, payment initiation, a separate
+Closed/Won) is gone — `Contract signed` is now the closed-won stage itself. See
+`docs/OPSDATA_PIPELINE.md` "v4 restructure" for the full stage mapping.
 
 ### Outreach & Response (Input Matrix)
 
 | Key | Stage(s) that satisfy it |
 |---|---|
-| `outreach` | `Cold LinkedIn Sent`, `Email Campaign Sent` |
-| `outreachLi` / `outreachEmail` | the branch split, for the channel chart and the KPI split line |
-| `outreachReplied` | `Replied`, `Ghost Follow-Up` |
+| `outreach` | `LinkedIn sent`, `Cold called assigned` |
+| `outreachLi` / `outreachColdCall` | the branch split, for the channel chart and the KPI split line |
+| `outreachReplied` | `Replied`, `1st interest follow up` |
 | `interestSent` | **note-derived** — see §3 |
-| `vcSetup` | `Discovery Call` |
+| `vcSetup` | `Discovery call` |
 | `vcAttended` | **derived** — see below |
 
-**`Ghost Follow-Up` counts as a reply.** A deal only reaches it *because* somebody answered and
-then went quiet, so filing the chase as a different kind of event from the reply that caused it
-would split one fact in two — and would drop 9 live deals that have plainly replied out of the
-reply row entirely.
+**`1st interest follow up` (renamed from `Ghost Follow-Up`) counts as a reply.** A deal only
+reaches it *because* somebody answered and then went quiet, so filing the chase as a different
+kind of event from the reply that caused it would split one fact in two.
 
-The LinkedIn/Email split falls out of *which entry stage* the deal is at. No channel property is
-read or stored — the branch already is the channel. A company that arrived on both tracks (the
-Workline case: an OutFlo lead that was also mailed) counts to both, exactly as both outreach events
-counted.
+The LinkedIn/Cold-Call split falls out of *which entry stage* the deal is at. No channel property
+is read or stored — the branch already is the channel. A company that arrived on both tracks
+counts to both, exactly as both outreach events counted. (`Cold called assigned` has no importer
+yet — see `docs/OPSDATA_PIPELINE.md` "Known gaps" — so this split will read 0 for that branch
+until one exists.)
 
 **`vcAttended` has no stage and never will.** A stage is a state the deal is *in*, and "they showed
-up" is not one — the deal sits at `Discovery Call` either way until an outcome moves it. So
-attendance is the **absence of a later `Dead/Interested/No Show`**, credited to the day of the
-**call**, not the day somebody marked the no-show. A call booked and attended on Monday counts to
-Monday even if the stage was tidied on Thursday. This means a very recent day's show rate can only
-fall as no-shows get recorded — the honest direction for it to move.
+up" is not one — the deal sits at `Discovery call` either way until an outcome moves it. So
+attendance is the **absence of a later `Dead: Discovery Call / No Show`**, credited to the day of
+the **call**, not the day somebody marked the no-show. A call booked and attended on Monday counts
+to Monday even if the stage was tidied on Thursday. This means a very recent day's show rate can
+only fall as no-shows get recorded — the honest direction for it to move.
 
-`Dead/Discovery Call/Privacy Concerns` is deliberately **not** a no-show: they turned up and then
-balked, so the call happened and the deal died for a different reason.
+`Dead: Discovery Call / Rejected by LH2` and `Dead: Discovery Call / Not Interested` are
+deliberately **not** no-shows: the call happened either way, and the deal died for a different
+reason.
 
-### Materials & Samples (Outcome Matrix)
+### Materials (Outcome Matrix)
 
 | Key | Stage(s) |
 |---|---|
-| `onePagerSent` | `One Pager Shared` |
+| `onePagerSent` | `One pager received` (renamed from `One Pager Shared`) |
 | `onePagerReceived` | **note-derived** — see §3 |
-| `samplesRequested` | `Samples Requested` |
-| `samplesReceived` | `Sample Received + Quality Check` |
+
+`samplesRequested`, `samplesReceived` and their backing stages were removed in v4 — the
+sample-evaluation stretch no longer exists as a stage.
 
 ### Commercials & Close
 
 | Key | Stage(s) |
 |---|---|
-| `negotiationDone` | `Commercial Negotiations` |
-| `contractSigned` | `Deal Contract Signed` |
-| `dealWon` | `Closed/Won` |
+| `loiSigned` | `LOI signed` (new in v4 — replaces the old sample-evaluation + negotiation stretch) |
+| `contractSigned` | `Contract signed` (renamed from `Deal Contract Signed`; this is now the closed-won stage) |
+| `dealWon` | `Contract signed` — same stage as `contractSigned` now. Kept as a distinct `METRICS` key only
+because `index.html`'s Value Won tile reads it directly (`wonValue()`, `renderValueWon()`); it is
+**not** a separate row in `OUTCOME_STAGES` since that would double-count the same event. |
 
-**Money comes from `cost`** ("Deal Cost (USD)"), never `amount`. The flowchart's Payment Initiation
-gate is literally "Deal Cost ($)" and this flow does not write `amount` at all. (The main portal has
-an unreconciled `amount`-vs-`cost` conflict; here we pick one and stay with it.)
+`negotiationDone` and its backing stage (`Commercial Negotiations`) were removed in v4.
+
+**Money comes from `cost`** ("Deal Cost (USD)"), never `amount`. v4 writes `cost` at `Contract
+signed` — there is no separate Payment Initiation stage anymore. (The main portal has an
+unreconciled `amount`-vs-`cost` conflict; here we pick one and stay with it.)
 
 ### Stages the pipeline has but the board does not chart
 
-`LinkedIn Connected`, `LinkedIn Follow-Up`, `Email Follow-Up`, `One Pager Requested`, `One Pager Follow-Up`, `Internal Evaluation (Sample)`, `Sample Follow-Up`,
-`Token Amount Paid`, `Data Migration Done`, `Payment Initiation`.
+`LinkedIn connected`, `1st interest sent`, `One pager requested`, `One pager follow up`,
+`Call rescheduled`.
 
-These are real stages and deals do sit at them — 388 at `LinkedIn Connected` at the time of writing.
-They are simply not on the board, by agreement. A deal at one of them gets an **empty `occ`** and
-appears in no funnel row, but it still ranks in the Hot Pipeline through `_SEQ`. To put one back:
-add it to `METRICS` here and in the builder, then add the key to the matching `*_STAGES` list in
-`index.html`.
+These are real stages and deals do sit at them. They are simply not on the board, by agreement. A
+deal at one of them gets an **empty `occ`** and appears in no funnel row, but it still ranks in the
+Hot Pipeline through `_SEQ`. To put one back: add it to `METRICS` here and in the builder, then add
+the key to the matching `*_STAGES` list in `index.html`.
 
 ---
 
@@ -256,11 +265,13 @@ An unknown stage is ranked at the funnel entry and counts toward **no metric** �
 same state a deliberately un-charted stage is in, which is why the warning matters. That must never
 be a silent state — a new stage that nobody adds here is a new stage nobody can see.
 
-Renames are handled two ways. `pipeline_v3_update.py` renamed `Message Back` → `LinkedIn
-Follow-Up` and `One Pager + Deck Shared` → `One Pager Shared` via per-stage `PATCH`, which
-preserves the stage id. The v2 restructure's PUT-based renames did **not** (`GMeet Fixed` →
-`Discovery Call` got a fresh id). Old labels therefore survive in the history of migrated deals,
-and `ALIAS` maps them forward — without it the series before 2026-08-13 falls off a cliff.
+Renames are handled two ways. Every v3 and v4 rename (`pipeline_v3_update.py`,
+`pipeline_v4_update.py`) goes through per-stage `PATCH`, which preserves the stage id — so the
+live stage simply carries its new label going forward and no `ALIAS` entry is needed for any of
+them. The v2 restructure's PUT-based renames did **not** preserve ids (`GMeet Fixed` → `Discovery
+Call` got a fresh id, `Cold Lead` → `Cold LinkedIn Sent` likewise). Those old labels survive in the
+history of migrated deals, and `ALIAS` maps them forward to their **current** (post-v4) label —
+without it the series before 2026-08-13 falls off a cliff.
 
 ---
 

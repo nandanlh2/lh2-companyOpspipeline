@@ -49,6 +49,11 @@ NEW = {
     "li_msg1_date":       dict(label="LinkedIn Msg 1 Sent (date)", type="date", fieldType="date"),
     "li_msg2_date":       dict(label="Msg 2 / Cold Email Sent (date)", type="date", fieldType="date"),
     "one_pager_sent_date": dict(label="One Pager Sent (date)", type="date", fieldType="date"),
+    # v4 (Company_Ops_SOP_flowchart_v3.png / lh2_deal_stage_flowchart_v3.svg restructure)
+    "cold_call_assigned_date": dict(label="Cold Call Assigned (date)", type="date", fieldType="date"),
+    "interest1_sent_date": dict(label="1st Interest Sent (date)", type="date", fieldType="date"),
+    "call_rescheduled_date": dict(label="Call Rescheduled (date)", type="date", fieldType="date"),
+    "loi_signed_date":    dict(label="LOI Signed (date)", type="date", fieldType="date"),
     "gmeet1_date":        dict(label="GMeet 1 Date", type="datetime", fieldType="date"),
     "gmeet1_link":        dict(label="GMeet 1 Link", type="string", fieldType="text"),
     "gmeet1_outcome":     dict(label="GMeet 1 Outcome", type="enumeration", fieldType="select",
